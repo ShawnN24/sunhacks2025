@@ -40,13 +40,15 @@ export default function GoogleAuthButton({
       disabled={isLoading}
       className={`
         flex items-center justify-center gap-3 
-        px-4 py-2 
-        border border-gray-300 rounded-lg 
-        bg-white hover:bg-gray-50 
+        px-6 py-3 
+        border border-white/20 rounded-xl 
+        bg-white/90 hover:bg-white
+        backdrop-blur-sm
         disabled:opacity-50 disabled:cursor-not-allowed
-        transition-colors duration-200
+        transition-all duration-300 ease-out
         font-medium text-gray-700
-        shadow-sm hover:shadow-md
+        shadow-lg hover:shadow-xl
+        hover:scale-[1.02] active:scale-[0.98]
         ${className}
       `}
     >

@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { logout, onAuthStateChange } from "@/lib/firebase/auth";
+import { User } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 interface Message {
   id: string;
@@ -12,14 +15,42 @@ interface Message {
 
 export default function Homescreen() {
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [activePopup, setActivePopup] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Auth state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((authUser: User | null) => {
+      if (!authUser) {
+        router.push('/');
+      } else {
+        setUser(authUser);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   useEffect(() => {
@@ -105,6 +136,12 @@ export default function Homescreen() {
             // Message box icon
             <svg key={2} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>,
+            // Logout icon
+            <svg key={3} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16,17 21,12 16,7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
           ].map((icon, i) => (
             <div
@@ -112,9 +149,11 @@ export default function Homescreen() {
               className={`w-12 h-12 rounded-full cursor-pointer transition-colors flex items-center justify-center ${
                 activePopup === i 
                   ? 'bg-white shadow-lg text-[#00af64]' 
+                  : i === 3
+                  ? 'bg-red-500 hover:bg-red-600 text-white' // Special styling for logout
                   : 'bg-[#00af64] hover:bg-[#00c770] text-white'
               }`}
-              onClick={() => setActivePopup(activePopup === i ? null : i)}
+              onClick={() => i === 3 ? handleLogout() : setActivePopup(activePopup === i ? null : i)}
             >
               {icon}
             </div>
@@ -135,6 +174,7 @@ export default function Homescreen() {
                 <li className="hover:text-[#00eb64] cursor-pointer">Home</li>
                 <li className="hover:text-[#00eb64] cursor-pointer">Profile</li>
                 <li className="hover:text-[#00eb64] cursor-pointer">Settings</li>
+                <li className="hover:text-[red] cursor-pointer">Logout</li>
               </ul>
             </motion.div>
           )}
@@ -143,7 +183,7 @@ export default function Homescreen() {
 
       {/* Expanding Popup Windows */}
       <AnimatePresence>
-        {activePopup !== null && (
+        {activePopup !== null && activePopup !== 3 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
