@@ -81,7 +81,6 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 
 # Gemini AI API
 GEMINI_API_KEY=your_gemini_api_key
-GOOGLE_AI_API_KEY=your_gemini_api_key
 ```
 
 ### Installation
@@ -117,40 +116,6 @@ npm run dev
 ```
 
 7. Open [http://localhost:3000](http://localhost:3000) in your browser
-
-## 🏗 Project Structure
-
-```
-├── app/
-│   ├── api/                    # API routes
-│   │   ├── chat/              # AI chat endpoint
-│   │   ├── places/            # Google Places proxy
-│   │   ├── triangulate/       # Triangulation algorithm
-│   │   └── proxy-image/       # Image proxy service
-│   ├── components/            # React components
-│   │   ├── messages/          # Messaging system components
-│   │   ├── FriendsMarkers.tsx # Location markers for friends
-│   │   ├── TriangulationButton.tsx # Activity recommendation UI
-│   │   └── ...
-│   ├── Homescreen/           # Main application screen
-│   ├── images/               # Static images and icons
-│   ├── genkit.ts            # AI configuration
-│   ├── globals.css          # Global styles
-│   ├── layout.tsx           # Root layout
-│   ├── login.tsx            # Authentication UI
-│   └── page.tsx             # App entry point
-├── lib/
-│   ├── firebase/            # Firebase service modules
-│   │   ├── auth.js         # Authentication services
-│   │   ├── friends.ts      # Friend management
-│   │   ├── groups.ts       # Group management
-│   │   ├── conversations.ts # Conversation handling
-│   │   ├── locations.ts    # Location services
-│   │   └── ...
-│   ├── triangulation.ts    # Triangulation client service
-│   └── firebase.ts         # Firebase configuration
-└── public/                 # Static assets
-```
 
 ## 💡 Key Features Deep Dive
 
@@ -201,10 +166,6 @@ npm run lint         # Run ESLint
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## 📄 License
-
-This project was created for SunHacks 2025. See the repository for license information.
 
 ## 🙏 Acknowledgments
 
