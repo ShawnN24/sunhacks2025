@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { SideButtonBubble, BUTTON_CONFIGS } from "@/app/components/SideButton";
 
 interface Message {
   id: string;
@@ -14,7 +15,6 @@ interface Message {
 }
 
 export default function Homescreen() {
-  const [open, setOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activePopup, setActivePopup] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -122,63 +122,24 @@ export default function Homescreen() {
 
   return (
     <div className="relative w-screen h-screen bg-gray-100">
-      {/* Left middle 3 bubble menu */}
+      {/* Left middle bubble menu using SideButton components */}
       <div className="absolute top-1/2 left-8 transform -translate-y-1/2 z-40">
         <div className="flex flex-col space-y-3">
           {[
-            // Map pointer icon
-            <svg key={0} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>,
-            // AI letters
-            <div key={1} className="font-bold text-lg leading-none">AI</div>,
-            // Message box icon
-            <svg key={2} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>,
-            // Logout icon
-            <svg key={3} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16,17 21,12 16,7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
+            BUTTON_CONFIGS.SEARCH.icon,
+            BUTTON_CONFIGS.AI_ASSISTANT.icon,
+            BUTTON_CONFIGS.MESSAGES.icon,
+            BUTTON_CONFIGS.LOGOUT.icon
           ].map((icon, i) => (
-            <div
+            <SideButtonBubble
               key={i}
-              className={`w-12 h-12 rounded-full cursor-pointer transition-colors flex items-center justify-center ${
-                activePopup === i 
-                  ? 'bg-white shadow-lg text-[#00af64]' 
-                  : i === 3
-                  ? 'bg-red-500 hover:bg-red-600 text-white' // Special styling for logout
-                  : 'bg-[#00af64] hover:bg-[#00c770] text-white'
-              }`}
+              icon={icon}
+              isActive={activePopup === i}
+              isSpecial={i === 3}
               onClick={() => i === 3 ? handleLogout() : setActivePopup(activePopup === i ? null : i)}
-            >
-              {icon}
-            </div>
+            />
           ))}
         </div>
-
-        {/* Dropdown */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="mt-2 bg-white rounded-xl shadow-lg p-3 w-40"
-            >
-              <ul className="space-y-2 text-sm">
-                <li className="hover:text-[#00eb64] cursor-pointer">Home</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Profile</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Settings</li>
-                <li className="hover:text-[red] cursor-pointer">Logout</li>
-              </ul>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Expanding Popup Windows */}
