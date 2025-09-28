@@ -12,7 +12,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const images = ["/img1.png", "/citystockimage.jpg", "/img3.png", "/img4.png"];
+  const images = ["/messages.png", "/search.png", "/chat.png", "/friends.png"];
 
   // Listen for auth state changes
   useEffect(() => {
@@ -130,73 +130,150 @@ export default function Login() {
         ))}
       </div>
 
-      {/* Centered Login Container with Glassmorphism */}
-      <div className="relative flex items-center justify-center h-full z-10">
-        <motion.div 
-          className="backdrop-blur-md bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8 w-96 text-center"
-          initial={{ scale: 0.8, opacity: 0, y: 50 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ 
-            duration: 0.8, 
-            delay: 1.5,
-            ease: "easeOut"
-          }}
-        >
-          {/* Logo/Title Animation */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 2, duration: 0.6 }}
-            className="mb-8"
+      {/* Two Card Layout */}
+      <div className="relative flex items-center justify-center h-full z-10 px-8">
+        <div className="flex gap-8 max-w-6xl w-full">
+          {/* Left Card - Welcome to MApI */}
+          <motion.div 
+            className="backdrop-blur-md bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8 w-96 text-center flex flex-col items-center justify-center"
+            initial={{ scale: 0.8, opacity: 0, y: 50, x: -50 }}
+            animate={{ scale: 1, opacity: 1, y: 0, x: 0 }}
+            transition={{ 
+              duration: 0.8, 
+              delay: 1.5,
+              ease: "easeOut"
+            }}
           >
-            <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
-              Welcome to Mapi
-            </h1>
-            <p className="text-white/80 text-sm">
-              Sign in to your account to continue
-            </p>
-          </motion.div>
+            {/* Logo/Title Animation */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 2, duration: 0.6 }}
+              className="mb-8"
+            >
+              <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
+                Welcome to Mapi
+              </h1>
+              <p className="text-white/80 text-sm">
+                Sign in to your account to continue
+              </p>
+            </motion.div>
 
-          {/* Animated Google Auth Button */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 2.3, duration: 0.5 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <GoogleAuthButton
-              onSuccess={handleLoginSuccess}
-              onError={handleLoginError}
-              className="w-full transform transition-all duration-200 hover:shadow-2xl"
+            {/* Animated Google Auth Button */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 2.3, duration: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <GoogleAuthButton
+                onSuccess={handleLoginSuccess}
+                onError={handleLoginError}
+                className="w-full transform transition-all duration-200 hover:shadow-2xl"
+              />
+            </motion.div>
+
+            {/* Decorative Elements */}
+            <motion.div 
+              className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-60"
+              animate={{ 
+                rotate: 360,
+                scale: [1, 1.2, 1]
+              }}
+              transition={{
+                rotate: { duration: 10, repeat: Infinity, ease: "linear" },
+                scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+            
+            <motion.div 
+              className="absolute -bottom-2 -left-2 w-6 h-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-40"
+              animate={{ 
+                rotate: -360,
+                scale: [1, 0.8, 1]
+              }}
+              transition={{
+                rotate: { duration: 8, repeat: Infinity, ease: "linear" },
+                scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
+              }}
             />
           </motion.div>
 
-          {/* Decorative Elements */}
+          {/* Right Card - App Description */}
           <motion.div 
-            className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-60"
-            animate={{ 
-              rotate: 360,
-              scale: [1, 1.2, 1]
+            className="backdrop-blur-md bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8 w-[48rem]"
+            initial={{ scale: 0.8, opacity: 0, y: 50, x: 50 }}
+            animate={{ scale: 1, opacity: 1, y: 0, x: 0 }}
+            transition={{ 
+              duration: 0.8, 
+              delay: 1.8,
+              ease: "easeOut"
             }}
-            transition={{
-              rotate: { duration: 10, repeat: Infinity, ease: "linear" },
-              scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
-            }}
-          />
-          
-          <motion.div 
-            className="absolute -bottom-2 -left-2 w-6 h-6 bg-gradient-to-r from-green-400 to-blue-500 rounded-full opacity-40"
-            animate={{ 
-              rotate: -360,
-              scale: [1, 0.8, 1]
-            }}
-            transition={{
-              rotate: { duration: 8, repeat: Infinity, ease: "linear" },
-              scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
-            }}
-          />
-        </motion.div>
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 2.1, duration: 0.6 }}
+              className="mb-6"
+            >
+              <h2 className="text-2xl font-bold text-white mb-4 drop-shadow-lg">
+                Discover & Connect
+              </h2>
+              <div className="space-y-4 text-left">
+                <div className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-white/80 text-sm">
+                    <strong>Smart Location Sharing:</strong> Share your location with friends and discover activities together
+                  </p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-white/80 text-sm">
+                    <strong>AI-Powered Recommendations:</strong> Get personalized activity suggestions based on your group's location
+                  </p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-white/80 text-sm">
+                    <strong>Real-time Messaging:</strong> Stay connected with friends through integrated chat and group features
+                  </p>
+                </div>
+                <div className="flex items-start space-x-3">
+                  <div className="w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-white/80 text-sm">
+                    <strong>Privacy First:</strong> Your location data is secure and only shared with your chosen friends
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Decorative Elements */}
+            <motion.div 
+              className="absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-60"
+              animate={{ 
+                rotate: -360,
+                scale: [1, 1.2, 1]
+              }}
+              transition={{
+                rotate: { duration: 12, repeat: Infinity, ease: "linear" },
+                scale: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+            
+            <motion.div 
+              className="absolute -bottom-2 -left-2 w-6 h-6 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full opacity-40"
+              animate={{ 
+                rotate: 360,
+                scale: [1, 0.8, 1]
+              }}
+              transition={{
+                rotate: { duration: 9, repeat: Infinity, ease: "linear" },
+                scale: { duration: 1.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }
+              }}
+            />
+          </motion.div>
+        </div>
       </div>
     </div>
   );

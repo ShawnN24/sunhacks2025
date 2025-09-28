@@ -143,13 +143,13 @@ export default function ChatView({
     };
   }, [conversation, currentUserId]);
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden rounded-lg">
       {/* Chat Header */}
-      <div className="flex items-center justify-between p-4 bg-white bg-opacity-10 rounded-t-lg">
-        <div className="flex items-center space-x-3">
+      <div className="flex items-center justify-between p-4 bg-white/20 backdrop-blur-sm border-b border-white/30 rounded-t-lg flex-shrink-0">
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
           <button
             onClick={() => onBack?.()}
-            className="flex items-center text-black text-opacity-80 hover:text-opacity-100 hover:bg-white hover:bg-opacity-10 p-2 rounded-lg transition-all"
+            className="flex items-center text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all flex-shrink-0"
             title="Back to conversations"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -161,13 +161,13 @@ export default function ChatView({
               <img 
                 src={conversation.friend.photoURL || 'https://via.placeholder.com/40'} 
                 alt="Avatar" 
-                className="w-10 h-10 rounded-full" 
+                className="w-10 h-10 rounded-full flex-shrink-0" 
               />
-              <div>
-                <h3 className="font-medium text-black">{conversation.friend.displayName}</h3>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-white truncate">{conversation.friend.displayName}</h3>
                 <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${conversation.friend.status === 'online' ? 'bg-green-400' : 'bg-gray-400'}`}></div>
-                  <p className="text-sm text-black text-opacity-60">
+                  <p className="text-sm text-white/60">
                     {conversation.friend.status === 'online' ? 'Online' : `Last seen ${conversation.friend.lastSeen.toLocaleDateString()}`}
                   </p>
                 </div>
@@ -176,7 +176,7 @@ export default function ChatView({
           )}
           {conversation.type === 'group' && conversation.group && (
             <>
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                   <circle cx="9" cy="7" r="4"/>
@@ -184,9 +184,9 @@ export default function ChatView({
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
               </div>
-              <div>
-                <h3 className="font-medium text-black">{conversation.group.name}</h3>
-                <p className="text-sm text-black text-opacity-60">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-white truncate">{conversation.group.name}</h3>
+                <p className="text-sm text-white/60">
                   {conversation.group.members.length} members
                 </p>
               </div>
@@ -198,7 +198,7 @@ export default function ChatView({
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowTriangulation(!showTriangulation)}
-            className="p-2 text-black text-opacity-80 hover:text-opacity-100 hover:bg-white hover:bg-opacity-10 rounded-lg transition-all"
+            className="p-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 rounded-lg transition-all shadow-lg"
             title="Find activities"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -211,7 +211,7 @@ export default function ChatView({
 
       {/* Triangulation Panel */}
       {showTriangulation && (
-        <div className="px-4 py-3 bg-white bg-opacity-5 border-b border-white border-opacity-10">
+        <div className="px-4 py-3 bg-white/10 backdrop-blur-sm border-b border-white/20 flex-shrink-0">
           <TriangulationButton
             currentUserId={currentUserId}
             friendLocations={friendLocations}
@@ -225,7 +225,7 @@ export default function ChatView({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-3 bg-gradient-to-b from-white/5 to-transparent scrollbar-hide min-h-0">
         {messages.map((message, index) => (
           <motion.div
             key={message.id}
@@ -234,18 +234,18 @@ export default function ChatView({
             transition={{ delay: index * 0.05 }}
             className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
           >
-            <div className={`max-w-[70%] ${
+            <div className={`max-w-[70%] backdrop-blur-sm p-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 ${
               message.senderId === currentUserId 
-                ? 'bg-blue-500 text-black' 
-                : 'bg-white bg-opacity-20 text-black'
-            } p-3 rounded-lg`}>
+                ? 'bg-white/20 text-white border border-white/30' 
+                : 'bg-white/10 text-white border border-white/20'
+            }`}>
               {conversation.type === 'group' && message.senderId !== currentUserId && (
-                <p className="text-xs text-black text-opacity-60 mb-1">
+                <p className="text-xs text-white/60 mb-1">
                   {getSenderName?.(message.senderId) || 'Unknown User'}
                 </p>
               )}
-              <p>{message.content}</p>
-              <p className="text-xs text-black text-opacity-60 mt-1">
+              <p className="text-white text-sm">{message.content}</p>
+              <p className="text-xs text-white/60 mt-1">
                 {message.timestamp.toLocaleTimeString()}
               </p>
             </div>
@@ -254,19 +254,19 @@ export default function ChatView({
       </div>
 
       {/* Message Input */}
-      <div className="p-4 bg-white bg-opacity-10">
+      <div className="p-3 bg-white/10 backdrop-blur-sm flex-shrink-0 rounded-b-lg border-t border-white/20">
         <div className="flex space-x-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => onNewMessageChange?.(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 p-3 rounded-lg bg-white bg-opacity-20 text-black placeholder-white placeholder-opacity-60 focus:outline-none focus:bg-opacity-30"
+            className="flex-1 p-3 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/60 focus:outline-none focus:bg-white/30 focus:ring-2 focus:ring-white/30 border border-white/30 focus:border-white/50 transition-all duration-200"
             onKeyPress={(e) => e.key === 'Enter' && onSendMessage?.()}
           />
           <button
             onClick={() => onSendMessage?.()}
-            className="px-6 py-3 bg-blue-500 text-black rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            className="px-4 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 border border-white/30 hover:border-white/50 shadow-lg hover:shadow-xl"
             disabled={!newMessage.trim()}
           >
             Send

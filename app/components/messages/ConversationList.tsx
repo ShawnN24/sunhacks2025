@@ -61,8 +61,8 @@ export default function ConversationList({
 
   if (allConversations.length === 0) {
     return (
-      <div className="text-black text-opacity-60 text-center py-8">
-        <svg className="w-16 h-16 mx-auto mb-4 text-black text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="text-white text-opacity-60 text-center py-8">
+        <svg className="w-16 h-16 mx-auto mb-4 text-white text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
         <p>No conversations yet</p>
@@ -84,7 +84,7 @@ export default function ConversationList({
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="group flex items-center space-x-3 p-3 rounded-lg bg-white bg-opacity-10 hover:bg-opacity-20 cursor-pointer transition-colors relative"
+            className="group flex items-center space-x-3 p-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl hover:bg-white/30 cursor-pointer transition-all duration-200 relative"
           >
             <div 
               className="flex items-center space-x-3 flex-1 min-w-0"
@@ -117,16 +117,16 @@ export default function ConversationList({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-black truncate">
+                  <p className="font-medium text-white truncate">
                     {isGroup ? group?.name || 'Group Chat' : friend?.displayName || 'Unknown User'}
                   </p>
                   {conversation.unreadCount > 0 && (
-                    <span className="bg-red-500 text-black text-xs px-2 py-1 rounded-full">
+                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
                       {conversation.unreadCount}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-black text-opacity-60 truncate">
+                <p className="text-sm text-white text-opacity-60 truncate">
                   {conversation.lastMessage?.content || (isGroup ? 'No messages yet' : 'Start a conversation')}
                 </p>
               </div>

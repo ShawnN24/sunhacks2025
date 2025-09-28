@@ -43,7 +43,7 @@ export default function FriendSearch({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="flex items-center justify-between p-3 rounded-lg bg-white bg-opacity-10"
+      className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 via-green-600/20 to-teal-600/20 backdrop-blur-sm border border-white/30 shadow-lg hover:shadow-xl hover:from-emerald-500/30 hover:via-green-600/30 hover:to-teal-600/30 transition-all duration-200"
     >
       <div className="flex items-center space-x-3">
         <img 
@@ -52,10 +52,10 @@ export default function FriendSearch({
           className="w-10 h-10 rounded-full" 
         />
         <div>
-          <p className="font-medium text-black">{user.displayName || user.name}</p>
-          <p className="text-sm text-black text-opacity-60">{user.email}</p>
+          <p className="font-medium text-white">{user.displayName || user.name}</p>
+          <p className="text-sm text-white text-opacity-60">{user.email}</p>
           {user.status && (
-            <p className="text-xs text-black text-opacity-50 capitalize">{user.status}</p>
+            <p className="text-xs text-white text-opacity-50 capitalize">{user.status}</p>
           )}
         </div>
       </div>
@@ -115,8 +115,8 @@ export default function FriendSearch({
             )}
             
             {searchQuery && searchResults.length === 0 && !isLoading && (
-              <div className="text-center text-black text-opacity-60 py-8">
-                <svg className="w-12 h-12 mx-auto mb-4 text-black text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center text-white text-opacity-60 py-8">
+                <svg className="w-12 h-12 mx-auto mb-4 text-white text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <p>No users found matching "{searchQuery}"</p>
@@ -124,8 +124,8 @@ export default function FriendSearch({
             )}
             
             {!searchQuery && (
-              <div className="text-center text-black text-opacity-60 py-8">
-                <svg className="w-12 h-12 mx-auto mb-4 text-black text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center text-white text-opacity-60 py-8">
+                <svg className="w-12 h-12 mx-auto mb-4 text-white text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <p>Start typing to search for friends</p>
@@ -140,8 +140,8 @@ export default function FriendSearch({
             {incomingRequests.map((request, index) => renderUserCard(request, index, 'incoming'))}
             
             {incomingRequests.length === 0 && (
-              <div className="text-center text-black text-opacity-60 py-8">
-                <svg className="w-12 h-12 mx-auto mb-4 text-black text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center text-white text-opacity-60 py-8">
+                <svg className="w-12 h-12 mx-auto mb-4 text-white text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 <p>No incoming friend requests</p>
@@ -156,8 +156,8 @@ export default function FriendSearch({
             {outgoingRequests.map((request, index) => renderUserCard(request, index, 'outgoing'))}
             
             {outgoingRequests.length === 0 && (
-              <div className="text-center text-black text-opacity-60 py-8">
-                <svg className="w-12 h-12 mx-auto mb-4 text-black text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="text-center text-white text-opacity-60 py-8">
+                <svg className="w-12 h-12 mx-auto mb-4 text-white text-opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
                 <p>No outgoing friend requests</p>
@@ -176,7 +176,7 @@ export default function FriendSearch({
       <div className="mb-4">
         <button
           onClick={() => onBack?.()}
-          className="flex items-center text-black text-opacity-80 hover:text-opacity-100 mb-3"
+          className="flex items-center text-white text-opacity-80 hover:text-opacity-100 mb-3"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
@@ -190,8 +190,8 @@ export default function FriendSearch({
             onClick={() => setActiveTab('search')}
             className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
               activeTab === 'search' 
-                ? 'bg-white bg-opacity-30 text-black font-medium' 
-                : 'bg-white bg-opacity-10 text-black text-opacity-70 hover:bg-opacity-20'
+                ? 'bg-gradient-to-r from-emerald-500/30 to-teal-600/30 text-white font-medium' 
+                : 'bg-white/10 text-white text-opacity-70 hover:bg-white/20'
             }`}
           >
             Search Users
@@ -200,8 +200,8 @@ export default function FriendSearch({
             onClick={() => setActiveTab('incoming')}
             className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors relative ${
               activeTab === 'incoming' 
-                ? 'bg-white bg-opacity-30 text-black font-medium' 
-                : 'bg-white bg-opacity-10 text-black text-opacity-70 hover:bg-opacity-20'
+                ? 'bg-gradient-to-r from-emerald-500/30 to-teal-600/30 text-white font-medium' 
+                : 'bg-white/10 text-white text-opacity-70 hover:bg-white/20'
             }`}
           >
             Incoming
@@ -215,8 +215,8 @@ export default function FriendSearch({
             onClick={() => setActiveTab('outgoing')}
             className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors relative ${
               activeTab === 'outgoing' 
-                ? 'bg-white bg-opacity-30 text-black font-medium' 
-                : 'bg-white bg-opacity-10 text-black text-opacity-70 hover:bg-opacity-20'
+                ? 'bg-gradient-to-r from-emerald-500/30 to-teal-600/30 text-white font-medium' 
+                : 'bg-white/10 text-white text-opacity-70 hover:bg-white/20'
             }`}
           >
             Outgoing
@@ -235,7 +235,7 @@ export default function FriendSearch({
             value={searchQuery}
             onChange={(e) => onSearchQueryChange?.(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full p-3 rounded-lg bg-white bg-opacity-20 text-black placeholder-white placeholder-opacity-60 focus:outline-none focus:bg-opacity-30"
+            className="w-full p-3 rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-600/20 backdrop-blur-sm border border-white/30 text-white placeholder-white placeholder-opacity-60 focus:outline-none focus:from-emerald-500/30 focus:to-teal-600/30"
           />
         )}
       </div>

@@ -110,29 +110,31 @@ export default function TriangulationButton({
 
   return (
     <div className={`triangulation-container ${className}`}>
-      <button
-        onClick={handleTriangulate}
-        disabled={!canTriangulate}
-        className={`
-          px-4 py-2 rounded-lg font-medium transition-colors
-          ${canTriangulate 
-            ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }
-          ${isLoading ? 'animate-pulse' : ''}
-        `}
-      >
-        {isLoading ? (
-          <span className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            Finding activities...
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            {getButtonText()}
-          </span>
-        )}
-      </button>
+      {!result && (
+        <button
+          onClick={handleTriangulate}
+          disabled={!canTriangulate}
+          className={`
+            px-4 py-2 rounded-lg font-medium transition-colors
+            ${canTriangulate 
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg' 
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }
+            ${isLoading ? 'animate-pulse' : ''}
+          `}
+        >
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Finding activities...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              {getButtonText()}
+            </span>
+          )}
+        </button>
+      )}
 
       {error && (
         <div className="mt-2 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700 text-sm">
@@ -147,34 +149,13 @@ export default function TriangulationButton({
       )}
 
       {result && (
-        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg max-h-96 overflow-hidden">
-          {/* Triangulation Summary */}
-          <div className="mb-3 p-3 bg-white bg-opacity-60 rounded-lg border border-green-100">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-green-800 font-semibold">📍 Meeting Point Found</span>
-              {result.outlierFiltering?.enabled && result.outlierFiltering.outliersRemoved > 0 && (
-                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                  {result.outlierFiltering.outliersRemoved} outlier(s) filtered
-                </span>
-              )}
-            </div>
-            <div className="text-sm text-green-700">
-              <div>📍 <strong>Location:</strong> {result.meetingPoint.latitude.toFixed(6)}, {result.meetingPoint.longitude.toFixed(6)}</div>
-              {result.distance && (
-                <div>📏 <strong>Max distance:</strong> {result.distance} km from center</div>
-              )}
-              {result.estimatedTravelTime && (
-                <div>⏱️ <strong>Est. travel time:</strong> ~{result.estimatedTravelTime} minutes</div>
-              )}
-              <div>👥 <strong>Based on:</strong> {friendLocations.length + 1} location{friendLocations.length > 0 ? 's' : ''}</div>
-            </div>
-          </div>
+        <div className="mt-2 p-3 bg-gradient-to-br from-emerald-500/20 via-green-600/20 to-teal-600/20 backdrop-blur-sm border border-white/30 rounded-lg max-h-80 overflow-hidden shadow-lg">
 
           {result.suggestions && result.suggestions.length > 0 && (
-            <div className="mt-3">
-              <strong className="text-green-800">🎯 Activity Recommendations from Gemini AI:</strong>
+              <div>
+              <strong className="text-white font-semibold">🎯 Activity Recommendations from Gemini AI:</strong>
               <div 
-                className="mt-2 h-64 overflow-y-auto border border-green-200 rounded-lg bg-white bg-opacity-30" 
+                className="mt-2 h-48 overflow-y-auto border border-white/30 rounded-lg bg-gradient-to-br from-emerald-500/15 via-green-600/15 to-teal-600/15 backdrop-blur-sm" 
                 style={{ 
                   scrollbarWidth: 'thin', 
                   scrollbarColor: '#86efac transparent',
@@ -225,14 +206,14 @@ export default function TriangulationButton({
                   };
 
                   return (
-                    <div key={index} className="bg-white bg-opacity-50 rounded-lg p-3 border border-green-200">
+                     <div key={index} className="bg-gradient-to-br from-emerald-500/25 via-green-600/25 to-teal-600/25 backdrop-blur-sm rounded-lg p-3 border border-white/30 shadow-sm">
                       <div className="flex items-start gap-2">
                         <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full mt-2"></div>
                         <div className="flex-1">
-                          <div className="font-medium text-green-800 text-sm">
+                           <div className="font-medium text-white text-sm">
                             {category.trim()}
                           </div>
-                          <div className="text-green-700 text-sm mt-1">
+                           <div className="text-white text-opacity-90 text-sm mt-1">
                             {isExpanded ? cleanDescription : conciseDescription}
                             {isTruncated && (
                               <button
@@ -245,21 +226,21 @@ export default function TriangulationButton({
                                   }
                                   setExpandedDescriptions(newExpanded);
                                 }}
-                                className="ml-2 text-blue-600 hover:text-blue-800 text-xs underline"
+                                 className="ml-2 text-emerald-300 hover:text-emerald-200 text-xs underline"
                               >
                                 {isExpanded ? 'Show less' : 'Show more'}
                               </button>
                             )}
                           </div>
                           {cleanAddress && (
-                            <div className="text-green-600 text-xs mt-1 font-mono">
+                             <div className="text-white text-opacity-80 text-xs mt-1 font-mono">
                               📍 {cleanAddress}
                             </div>
                           )}
                           {onSendToChat && (
                             <button
                               onClick={handleSendToChat}
-                              className="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                              className="mt-2 px-3 py-1 bg-gradient-to-r from-blue-400 to-blue-500 text-white text-xs rounded hover:from-blue-500 hover:to-blue-600 transition-colors shadow-sm"
                             >
                               Send to Chat
                             </button>
