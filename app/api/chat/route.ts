@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { ai } from '@/app/genkit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,41 +14,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
     }
 
-    console.log('API Key found, making request to Gemini...');
+    console.log('Using Genkit SDK...');
 
-    // Get the generative model
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    // Generate content using Genkit with request for shorter response
+    const result = await ai.generate({
+      prompt: `You are "MApI Assistant," a helpful AI assistant inside the MApI platform.  
+Your user is anonymous.  
 
-    // Format conversation history
-    const chatHistory = history.map((msg: { role: string; content: string }) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }]
-    }));
+Your capabilities are:  
+1. **Providing navigation assistance** 🚗 (e.g., best routes, estimated travel times, traffic updates, toll info).  
+2. **Answering location-specific questions** 📍 (e.g., nearby restaurants, gas stations, parking, charging stations, landmarks).  
+3. **Recommending activities and stops** 🏞️ (e.g., things to do near a destination, scenic detours, recommended breaks).  
+4. **Facilitating messaging** 💬 by allowing the user to send quick route/location updates to selected contacts.  
+5. **Offering chatbot-style assistance** 🤖 for driving-related or activity-related questions relative to the **route, current location, or destination**.
 
-    console.log('Chat history:', chatHistory);
+Instructions for your response style:  
+- Be direct and clear.   
+- Break down navigation or activity suggestions into bulleted lists for easy scanning.  
+- Use visual emojis to make responses engaging and easier to parse (e.g., 🚗 for driving, ⛽ for fuel, 🍔 for food, 🏨 for hotels, 🎉 for activities).  
+- Use bullet points and line breaks for easier reading.
+- Do not use any markdown formatting like asterisks or bold text.
+- Do not include any JSON in your responses - just provide plain text answers.
+- If the user asks something outside of driving, navigation, messaging, or activity-related topics, politely explain that you can only help with maps, routes, messaging, and activities.  
 
-    // Start chat session with history
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
-      },
+User Query: "${message}"  
+`,
     });
 
-    console.log('Sending message:', message);
-
-    // Send message and get response
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log('Received response:', text);
+    console.log('Received response:', result.text);
 
     return NextResponse.json({ 
-      message: text,
+      message: result.text,
       success: true 
     });
 

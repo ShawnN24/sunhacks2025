@@ -10,11 +10,8 @@ export default function Index() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  useEffect(() => {
-    const unsubscribe = onAuthStateChange((authUser: User | null) => {
-      setUser(authUser);
-      setIsLoading(false);
-    });
+  // Example placeholders – replace with your uploaded image paths
+  const images = ["/img1.png", "/citystockimage.jpg", "chat.png", "/img4.png"];
 
     return () => unsubscribe();
   }, []);
