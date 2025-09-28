@@ -437,39 +437,39 @@ function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number} | null) =
 }
 
 // Markers component: creates google.maps.Marker for each entry in COORDS
-// function Markers({onMarkerClick}:{onMarkerClick?: (loc:{lat:number,lng:number}) => void}){
-//   const map = useMap();
-//   useEffect(() => {
-//     if (!map) return;
-//     const markers: google.maps.Marker[] = [];
-//     const infoWindow = new google.maps.InfoWindow();
+function Markers({onMarkerClick}:{onMarkerClick?: (loc:{lat:number,lng:number}) => void}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const markers: google.maps.Marker[] = [];
+    const infoWindow = new google.maps.InfoWindow();
 
-//     // Use entries so we have the name associated with each coordinate
-//     Object.entries(COORDS).forEach(([name, coord]) => {
-//       const marker = new google.maps.Marker({
-//         position: coord,
-//         map,
-//       });
-//       marker.addListener('click', () => {
-//         // Open a single InfoWindow for clicked marker
-//         infoWindow.setContent(`<div style="padding:6px 8px;font-weight:600;">${name}</div>`);
-//         infoWindow.open({ map, anchor: marker });
-//         map.panTo(coord);
-//         map.setZoom(13);
-//         onMarkerClick && onMarkerClick(coord);
-//       });
-//       markers.push(marker);
-//     });
+    // Use entries so we have the name associated with each coordinate
+    Object.entries(COORDS).forEach(([name, coord]) => {
+      const marker = new google.maps.Marker({
+        position: coord,
+        map,
+      });
+      marker.addListener('click', () => {
+        // Open a single InfoWindow for clicked marker
+        infoWindow.setContent(`<div style="padding:6px 8px;font-weight:600;">${name}</div>`);
+        infoWindow.open({ map, anchor: marker });
+        map.panTo(coord);
+        map.setZoom(13);
+        onMarkerClick && onMarkerClick(coord);
+      });
+      markers.push(marker);
+    });
 
-//     // Close infoWindow and remove markers on cleanup
-//     return () => {
-//       infoWindow.close();
-//       markers.forEach(m => m.setMap(null));
-//     };
-//   }, [map, onMarkerClick]);
+    // Close infoWindow and remove markers on cleanup
+    return () => {
+      infoWindow.close();
+      markers.forEach(m => m.setMap(null));
+    };
+  }, [map, onMarkerClick]);
 
-//   return null;
-// }
+  return null;
+}
 
 // SearchMarker: single marker representing the current search result
 function SearchMarker({center}:{center: {lat:number,lng:number} | null}){
