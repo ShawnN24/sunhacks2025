@@ -47,6 +47,14 @@ import {
   listenToConversations,
   markConversationAsRead
 } from '@/lib/firebase/conversations';
+import {
+  updateUserLocation,
+  disableUserLocation,
+  toggleLocationVisibility,
+  listenToFriendsLocations,
+  getLocationPreferences,
+  FriendLocation
+} from '@/lib/firebase/locations';
 import { 
   ConversationList, 
   FriendSearch, 
@@ -58,6 +66,8 @@ import {
   GroupMessage,
   Conversation
 } from "@/app/components/messages";
+import FriendsMarkers from "@/app/components/FriendsMarkers";
+import LocationSettings from "@/app/components/LocationSettings";
 import monkeyMarkerUrl from '../images/beardot.png';
 
 interface Message {
@@ -145,10 +155,16 @@ export default function Homescreen() {
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<Friend[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<Friend[]>([]);
-  const [messagingView, setMessagingView] = useState<'conversations' | 'search' | 'groups' | 'chat'>('conversations');
+  const [messagingView, setMessagingView] = useState<'conversations' | 'search' | 'groups' | 'chat' | 'location-settings'>('conversations');
   const [newGroupName, setNewGroupName] = useState('');
   const [selectedFriendsForGroup, setSelectedFriendsForGroup] = useState<string[]>([]);
   const [directMessageInput, setDirectMessageInput] = useState('');
+
+  // Location tracking states
+  const [friendsLocations, setFriendsLocations] = useState<FriendLocation[]>([]);
+  const [isLocationEnabled, setIsLocationEnabled] = useState(false);
+  const [isLocationVisible, setIsLocationVisible] = useState(true);
+  const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
   // Auth state listener
   useEffect(() => {
     const unsubscribe = onAuthStateChange(async (authUser: User | null) => {
@@ -240,10 +256,108 @@ export default function Homescreen() {
     );
     unsubscribers.push(unsubscribeConversations);
 
+    // Load location preferences
+    const loadLocationPreferences = async () => {
+      try {
+        const preferences = await getLocationPreferences(user.uid);
+        if (preferences) {
+          setIsLocationEnabled(preferences.isLocationEnabled);
+          setIsLocationVisible(preferences.isVisible);
+        }
+      } catch (error) {
+        console.error('Error loading location preferences:', error);
+      }
+    };
+    loadLocationPreferences();
+
     return () => {
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };
   }, [user]);
+
+  // Set up friends location listener
+  useEffect(() => {
+    if (!user || friends.length === 0) {
+      setFriendsLocations([]);
+      return;
+    }
+
+    const friendIds = friends.map(friend => friend.uid);
+    const unsubscribe = listenToFriendsLocations(
+      friendIds,
+      (locations: FriendLocation[]) => {
+        setFriendsLocations(locations);
+      },
+      (error: Error) => {
+        console.error('Friends locations listener error:', error);
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user, friends]);
+
+  // Set up location tracking
+  useEffect(() => {
+    if (!user || !isLocationEnabled || !isLocationVisible) {
+      // Stop location tracking if disabled or not visible
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        setLocationWatchId(null);
+      }
+      
+      // Disable location in Firebase if needed
+      if (user && (!isLocationEnabled || !isLocationVisible)) {
+        disableUserLocation(user.uid).catch(console.error);
+      }
+      
+      return;
+    }
+
+    // Start location tracking
+    if ('geolocation' in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          
+          try {
+            await updateUserLocation(
+              user.uid,
+              user.displayName || 'Unknown User',
+              user.photoURL || undefined,
+              latitude,
+              longitude,
+              accuracy || undefined,
+              isLocationVisible
+            );
+            
+            // Update local current location
+            setCurrentLocation({ lat: latitude, lng: longitude });
+          } catch (error) {
+            console.error('Error updating location:', error);
+          }
+        },
+        (error) => {
+          console.error('Location tracking error:', error);
+          // Disable location sharing on error
+          setIsLocationEnabled(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 60000, // Increased timeout to 60 seconds
+          maximumAge: 60000 // Cache position for 60 seconds
+        }
+      );
+
+      setLocationWatchId(watchId);
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+        setLocationWatchId(null);
+      };
+    }
+  }, [user, isLocationEnabled, isLocationVisible]);
 
   // Set up message listener for active conversation
   useEffect(() => {
@@ -594,6 +708,49 @@ export default function Homescreen() {
     }
   };
 
+  // Location functions
+  const handleLocationToggle = async (enabled: boolean) => {
+    setIsLocationEnabled(enabled);
+    
+    if (!enabled && user) {
+      // Stop location tracking and disable in Firebase
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        setLocationWatchId(null);
+      }
+      await disableUserLocation(user.uid);
+    }
+  };
+
+  const handleVisibilityToggle = async (visible: boolean) => {
+    setIsLocationVisible(visible);
+    
+    if (user) {
+      await toggleLocationVisibility(user.uid, visible);
+    }
+  };
+
+  const handleFriendLocationClick = (friend: FriendLocation) => {
+    // Find the friend in the friends list and open a direct conversation
+    const friendData = friends.find(f => f.uid === friend.userId);
+    if (friendData && user) {
+      const conversationId = `direct_${[user.uid, friend.userId].sort().join('_')}`;
+      const conversation: Conversation = {
+        id: conversationId,
+        type: 'direct',
+        participants: [user.uid, friend.userId],
+        lastMessage: undefined,
+        unreadCount: 0,
+        updatedAt: new Date()
+      };
+      
+      // Switch to messages popup and open conversation
+      setActivePopup(2);
+      setActiveConversation(conversation);
+      setMessagingView('chat');
+    }
+  };
+
   // Get current position and set search center + open search popup
   const handleLocateMe = () => {
     if (!('geolocation' in navigator)) {
@@ -609,9 +766,27 @@ export default function Homescreen() {
       },
       (err) => {
         console.error('Geolocation error', err);
-        alert('Unable to retrieve your location: ' + (err.message || err.code));
+        let errorMessage = 'Unable to retrieve your location.';
+        
+        switch(err.code) {
+          case 1: // PERMISSION_DENIED
+            errorMessage = 'Location access denied. Please enable location permissions in your browser.';
+            break;
+          case 2: // POSITION_UNAVAILABLE
+            errorMessage = 'Location information is unavailable. Please check your GPS/network connection.';
+            break;
+          case 3: // TIMEOUT
+            errorMessage = 'Location request timed out. Please try again.';
+            break;
+        }
+        
+        alert(errorMessage);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { 
+        enableHighAccuracy: true, 
+        timeout: 15000, // 15 second timeout for manual location requests
+        maximumAge: 60000 // Accept cached position up to 1 minute old
+      }
     );
   };
 
@@ -878,6 +1053,23 @@ export default function Homescreen() {
                             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                           </svg>
                         </button>
+                        <button
+                          onClick={() => setMessagingView('location-settings')}
+                          className={`p-2 rounded-lg transition-colors relative ${
+                            messagingView === 'location-settings' 
+                              ? 'bg-white bg-opacity-30' 
+                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                          }`}
+                          title="Location Settings"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                            <circle cx="12" cy="10" r="3"/>
+                          </svg>
+                          {isLocationEnabled && (
+                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"></div>
+                          )}
+                        </button>
                       </div>
                     </div>
 
@@ -929,6 +1121,17 @@ export default function Homescreen() {
                           }
                         }}
                         onCreateGroup={handleCreateGroup}
+                        onBack={() => setMessagingView('conversations')}
+                      />
+                    )}
+
+                    {/* Location Settings View */}
+                    {messagingView === 'location-settings' && (
+                      <LocationSettings
+                        isLocationEnabled={isLocationEnabled}
+                        isVisible={isLocationVisible}
+                        onLocationToggle={handleLocationToggle}
+                        onVisibilityToggle={handleVisibilityToggle}
                         onBack={() => setMessagingView('conversations')}
                       />
                     )}
@@ -1014,6 +1217,11 @@ export default function Homescreen() {
           <Markers onMarkerClick={(loc) => { setSearchCenter(loc); setActivePopup(0); }} />
           <SearchMarker center={searchCenter} />
           <CurrentLocationMarker center={currentLocation} />
+          <FriendsMarkers 
+            friendsLocations={friendsLocations}
+            currentUserLocation={currentLocation}
+            onFriendClick={handleFriendLocationClick}
+          />
         </APIProvider>
       </div>
       </div>
