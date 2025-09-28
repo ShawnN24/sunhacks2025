@@ -56,6 +56,7 @@ export default function Homescreen() {
       });
 
       const data = await response.json();
+      console.log('API Response:', data);
 
       if (data.success) {
         const assistantMessage: Message = {
@@ -66,6 +67,7 @@ export default function Homescreen() {
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
+        console.error('API Error:', data.error, data.details);
         throw new Error(data.error || 'Failed to get response');
       }
     } catch (error) {
@@ -216,7 +218,7 @@ export default function Homescreen() {
                                 : 'bg-white bg-opacity-10 text-black'
                             }`}
                           >
-                            <p className="text-sm">{message.content}</p>
+                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                             <p className="text-xs text-black text-opacity-50 mt-1">
                               {message.timestamp.toLocaleTimeString()}
                             </p>

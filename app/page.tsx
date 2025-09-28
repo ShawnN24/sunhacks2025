@@ -8,7 +8,7 @@ export default function Login() {
   const router = useRouter();
   
   // Example placeholders – replace with your uploaded image paths
-  const images = ["/img1.png", "/citystockimage.jpg", "/img3.png", "/img4.png"];
+  const images = ["/img1.png", "/citystockimage.jpg", "chat.png", "/img4.png"];
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black">
