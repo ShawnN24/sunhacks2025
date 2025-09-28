@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { APIProvider, Map } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 
 interface Message {
   id: string;
@@ -14,12 +14,24 @@ interface Message {
   timestamp: Date;
 }
 
+// Search data from mapsearch.tsx
+const COORDS: Record<string, {lat:number,lng:number}> = {
+  "Alice Johnson": { lat: 40, lng: 111.94 },
+  "Bob Smith":    { lat: 100,  lng: 100 },
+  "Carlos Rivera":{ lat: 0,  lng: 0 },
+  "Diana Park":   { lat: 33.44,  lng: -111.92 },
+  "Eve Thompson": { lat: 33.415, lng: -111.941 },
+};
+
+const DATA = Object.keys(COORDS);
+
 export default function Homescreen() {
   const [user, setUser] = useState<User | null>(null);
   const [activePopup, setActivePopup] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [searchCenter, setSearchCenter] = useState<{lat:number, lng:number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -209,7 +221,7 @@ export default function Homescreen() {
                 {activePopup === 0 && (
                   <div className="h-full flex flex-col">
                     <h2 className="text-2xl font-bold text-white mb-4">Search</h2>
-                    
+                    <Searchbar onSelect={(loc) => setSearchCenter(loc)} />
                   </div>
                 )}
                 
@@ -308,7 +320,63 @@ export default function Homescreen() {
             gestureHandling='greedy'
             disableDefaultUI
           />
+          <MapController center={searchCenter} />
         </APIProvider>
+      </div>
+    </div>
+  );
+}
+
+// MapController component from mapsearch.tsx
+function MapController({center}:{center: {lat:number, lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if(!map || !center) return;
+    map.panTo(center);
+    map.setZoom(13);
+  }, [map, center]);
+  return null;
+}
+
+// Searchbar component from mapsearch.tsx
+function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number}) => void}) {
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return DATA.filter((name) => name.toLowerCase().includes(q));
+  }, [query]);
+
+  return (
+    <div className="w-full max-w-md">
+      <label htmlFor="search-input" className="sr-only">Search</label>
+      <input
+        id="search-input"
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search for a location"
+        className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring"
+      />
+
+      <div className="mt-2">
+        {query === "" ? (
+          <div className="text-sm text-black text-opacity-60">Type to search</div>
+        ) : results.length === 0 ? (
+          <div className="text-sm text-black text-opacity-60">No results</div>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {results.map((r) => (
+              <li
+                key={r}
+                className="flex justify-between bg-white bg-opacity-20 p-2 rounded cursor-pointer hover:bg-opacity-30"
+                onClick={() => onSelect && onSelect(COORDS[r])}
+              >
+                <span className="font-medium text-black">{r}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
