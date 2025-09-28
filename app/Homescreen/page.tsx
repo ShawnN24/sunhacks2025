@@ -1,10 +1,66 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+// Minimal `google` declaration for runtime maps objects (avoid TS errors in this file)
+declare const google: any;
+
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
+import { SideButtonBubble, BUTTON_CONFIGS } from "@/app/components/SideButton";
+
+// Firebase services
+import {
+  createUserProfile,
+  updateUserStatus,
+  searchUsers,
+  sendFriendRequest,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  cancelFriendRequest,
+  getIncomingFriendRequests,
+  getOutgoingFriendRequests,
+  listenToIncomingFriendRequests,
+  getFriends,
+  listenToFriends,
+} from '@/lib/firebase/friends';
+import {
+  createGroup,
+  getUserGroups,
+  listenToUserGroups,
+  deleteGroup,
+} from '@/lib/firebase/groups';
+import {
+  sendDirectMessage,
+  getDirectMessages,
+  listenToDirectMessages,
+  markDirectMessagesAsRead,
+} from '@/lib/firebase/directMessages';
+import {
+  sendGroupMessage,
+  getGroupMessages,
+  listenToGroupMessages,
+  markAllGroupMessagesAsRead,
+} from '@/lib/firebase/groupMessages';
+import {
+  getUserConversations,
+  listenToConversations,
+  markConversationAsRead
+} from '@/lib/firebase/conversations';
+import { 
+  ConversationList, 
+  FriendSearch, 
+  GroupCreation, 
+  ChatView,
+  Friend,
+  DirectMessage,
+  Group,
+  GroupMessage,
+  Conversation
+} from "@/app/components/messages";
+import monkeyMarkerUrl from '../images/beardot.png';
 
 interface Message {
   id: string;
@@ -13,28 +69,194 @@ interface Message {
   timestamp: Date;
 }
 
+// Search data from mapsearch.tsx
+const COORDS: Record<string, {lat:number,lng:number}> = {
+  "Alice Johnson": { lat: 40, lng: 111.94 },
+  "Bob Smith":    { lat: 100,  lng: 100 },
+  "Carlos Rivera":{ lat: 0,  lng: 0 },
+  "Diana Park":   { lat: 33.44,  lng: -111.92 },
+  "Eve Thompson": { lat: 33.415, lng: -111.941 },
+};
+
+const DATA = Object.keys(COORDS);
+
 export default function Homescreen() {
-  const [open, setOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activePopup, setActivePopup] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [searchCenter, setSearchCenter] = useState<{lat:number, lng:number} | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{lat:number, lng:number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Messaging states
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<(DirectMessage | GroupMessage)[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Friend[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<Friend[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<Friend[]>([]);
+  const [messagingView, setMessagingView] = useState<'conversations' | 'search' | 'groups' | 'chat'>('conversations');
+  const [newGroupName, setNewGroupName] = useState('');
+  const [selectedFriendsForGroup, setSelectedFriendsForGroup] = useState<string[]>([]);
+  const [directMessageInput, setDirectMessageInput] = useState('');
+
   // Auth state listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((authUser: User | null) => {
+    const unsubscribe = onAuthStateChange(async (authUser: User | null) => {
       if (!authUser) {
         router.push('/');
       } else {
         setUser(authUser);
+        
+        // Initialize user profile in Firebase
+        try {
+          await createUserProfile(authUser.uid, {
+            uid: authUser.uid,
+            displayName: authUser.displayName || 'Unknown User',
+            email: authUser.email || '',
+            photoURL: authUser.photoURL || undefined,
+            status: 'online'
+          });
+        } catch (error) {
+          console.error('Error initializing user profile:', error);
+        }
       }
     });
 
     return () => unsubscribe();
   }, [router]);
+
+  // Set up Firebase listeners when user is authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribers: (() => void)[] = [];
+
+    // Listen to friends changes
+    const unsubscribeFriends = listenToFriends(
+      user.uid,
+      (updatedFriends: Friend[]) => {
+        setFriends(updatedFriends);
+      },
+      (error: Error) => {
+        console.error('Friends listener error:', error);
+      }
+    );
+    unsubscribers.push(unsubscribeFriends);
+
+    // Listen to incoming friend requests
+    const unsubscribeIncomingRequests = listenToIncomingFriendRequests(
+      user.uid,
+      (requests: Friend[]) => {
+        setIncomingRequests(requests);
+      },
+      (error: Error) => {
+        console.error('Incoming requests listener error:', error);
+      }
+    );
+    unsubscribers.push(unsubscribeIncomingRequests);
+
+    // Load outgoing friend requests (no real-time listener needed for outgoing)
+    const loadOutgoingRequests = async () => {
+      try {
+        const outgoing = await getOutgoingFriendRequests(user.uid);
+        setOutgoingRequests(outgoing);
+      } catch (error) {
+        console.error('Error loading outgoing requests:', error);
+      }
+    };
+    loadOutgoingRequests();
+
+    // Listen to groups changes
+    const unsubscribeGroups = listenToUserGroups(
+      user.uid,
+      (updatedGroups: Group[]) => {
+        setGroups(updatedGroups);
+      },
+      (error: Error) => {
+        console.error('Groups listener error:', error);
+      }
+    );
+    unsubscribers.push(unsubscribeGroups);
+
+    // Listen to conversations changes
+    const unsubscribeConversations = listenToConversations(
+      user.uid,
+      (updatedConversations: Conversation[]) => {
+        setConversations(updatedConversations);
+      },
+      (error: Error) => {
+        console.error('Conversations listener error:', error);
+      }
+    );
+    unsubscribers.push(unsubscribeConversations);
+
+    return () => {
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+    };
+  }, [user]);
+
+  // Set up message listener for active conversation
+  useEffect(() => {
+    if (!activeConversation || !user) return;
+
+    let unsubscribeMessages: (() => void) | undefined;
+
+    if (activeConversation.type === 'direct') {
+      const otherUserId = activeConversation.participants.find(p => p !== user.uid);
+      if (otherUserId) {
+        unsubscribeMessages = listenToDirectMessages(
+          user.uid,
+          otherUserId,
+          (messages: DirectMessage[]) => {
+            setConversationMessages(messages);
+          },
+          (error: Error) => {
+            console.error('Direct messages listener error:', error);
+          }
+        );
+      }
+    } else if (activeConversation.type === 'group') {
+      const groupId = activeConversation.id.replace('group_', '');
+      unsubscribeMessages = listenToGroupMessages(
+        groupId,
+        (messages: GroupMessage[]) => {
+          setConversationMessages(messages);
+        },
+        (error: Error) => {
+          console.error('Group messages listener error:', error);
+        }
+      );
+    }
+
+    return () => {
+      unsubscribeMessages?.();
+    };
+  }, [activeConversation, user]);
+
+  // Update user status on mount/unmount
+  useEffect(() => {
+    if (!user) return;
+
+    updateUserStatus(user.uid, 'online');
+
+    const handleBeforeUnload = () => {
+      updateUserStatus(user.uid, 'offline');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      updateUserStatus(user.uid, 'offline');
+    };
+  }, [user]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -87,6 +309,7 @@ export default function Homescreen() {
       });
 
       const data = await response.json();
+      console.log('API Response:', data);
 
       if (data.success) {
         const assistantMessage: Message = {
@@ -97,6 +320,7 @@ export default function Homescreen() {
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
+        console.error('API Error:', data.error, data.details);
         throw new Error(data.error || 'Failed to get response');
       }
     } catch (error) {
@@ -120,65 +344,254 @@ export default function Homescreen() {
     }
   };
 
+  // Helper function to get sender name by ID
+  const getSenderName = (senderId: string): string => {
+    const friend = friends.find(f => f.uid === senderId);
+    return friend?.displayName || 'Unknown User';
+  };
+
+  // Messaging Functions
+  const searchFriends = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    if (!user) return;
+
+    console.log('Searching for users with query:', query, 'Current user ID:', user.uid);
+    
+    setIsLoading(true);
+    try {
+      const users = await searchUsers(query, user.uid);
+      console.log('Search results:', users);
+      setSearchResults(users);
+    } catch (error) {
+      console.error('Search failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const addFriend = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      await sendFriendRequest(user.uid, friendId);
+      // Refresh outgoing requests to show the new request
+      const outgoing = await getOutgoingFriendRequests(user.uid);
+      setOutgoingRequests(outgoing);
+    } catch (error) {
+      console.error('Failed to send friend request:', error);
+    }
+  };
+
+  const acceptFriend = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      await acceptFriendRequest(user.uid, friendId);
+      // The listeners will update friends and remove from incoming requests
+    } catch (error) {
+      console.error('Failed to accept friend request:', error);
+    }
+  };
+
+  const rejectFriend = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      await rejectFriendRequest(user.uid, friendId);
+      // The listener will remove from incoming requests
+    } catch (error) {
+      console.error('Failed to reject friend request:', error);
+    }
+  };
+
+  const cancelRequest = async (friendId: string) => {
+    if (!user) return;
+    
+    try {
+      await cancelFriendRequest(user.uid, friendId);
+      // Refresh outgoing requests
+      const outgoing = await getOutgoingFriendRequests(user.uid);
+      setOutgoingRequests(outgoing);
+    } catch (error) {
+      console.error('Failed to cancel friend request:', error);
+    }
+  };
+
+  const handleSendDirectMessage = async () => {
+    if (!directMessageInput.trim() || !activeConversation || !user) return;
+
+    const receiverId = activeConversation.participants.find(p => p !== user.uid);
+    if (!receiverId) return;
+
+    try {
+      await sendDirectMessage(user.uid, receiverId, directMessageInput.trim());
+      setDirectMessageInput('');
+      // The real-time listener will update the conversation messages
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim() || selectedFriendsForGroup.length < 2 || !user) {
+      if (selectedFriendsForGroup.length < 2) {
+        alert('Groups must have at least 3 people (you + 2 friends). Please select at least 2 more friends.');
+      }
+      return;
+    }
+
+    try {
+      const members = [user.uid, ...selectedFriendsForGroup];
+      await createGroup(newGroupName.trim(), user.uid, members);
+      
+      setNewGroupName('');
+      setSelectedFriendsForGroup([]);
+      setMessagingView('conversations');
+      // The real-time listener will update the groups list
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      alert('Failed to create group. Please try again.');
+    }
+  };
+
+  const handleSendGroupMessage = async () => {
+    if (!directMessageInput.trim() || !activeConversation || !user) return;
+
+    try {
+      // Extract group ID from conversation ID (format: "group_${groupId}")
+      const groupId = activeConversation.id.replace('group_', '');
+      await sendGroupMessage(groupId, user.uid, directMessageInput.trim());
+      setDirectMessageInput('');
+      // The real-time listener will update the conversation messages
+    } catch (error) {
+      console.error('Failed to send group message:', error);
+    }
+  };
+
+  const openConversation = async (conversation: Conversation) => {
+    setActiveConversation(conversation);
+    setMessagingView('chat');
+    
+    // Mark messages as read when conversation is opened
+    if (user && conversation.unreadCount > 0) {
+      try {
+        if (conversation.type === 'direct') {
+          const otherUserId = conversation.participants.find(p => p !== user.uid);
+          if (otherUserId) {
+            // Mark direct messages from the other user as read
+            await markDirectMessagesAsRead(otherUserId, user.uid);
+          }
+        } else if (conversation.type === 'group') {
+          const groupId = conversation.id.replace('group_', '');
+          // Mark all group messages as read for this user
+          await markAllGroupMessagesAsRead(groupId, user.uid);
+        }
+        
+        // Update local conversations state to immediately reflect the change
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === conversation.id 
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          )
+        );
+      } catch (error) {
+        console.error('Error marking messages as read:', error);
+      }
+    }
+    
+    // Load existing messages for the conversation
+    try {
+      if (conversation.type === 'direct' && user) {
+        const otherUserId = conversation.participants.find(p => p !== user.uid);
+        if (otherUserId) {
+          const messages = await getDirectMessages(user.uid, otherUserId);
+          setConversationMessages(messages);
+        }
+      } else if (conversation.type === 'group') {
+        const groupId = conversation.id.replace('group_', '');
+        const messages = await getGroupMessages(groupId);
+        setConversationMessages(messages);
+      }
+    } catch (error) {
+      console.error('Error loading conversation messages:', error);
+      setConversationMessages([]);
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!user) return;
+
+    try {
+      await deleteGroup(groupId, user.uid);
+      // If the deleted group was the active conversation, go back to conversations
+      if (activeConversation && activeConversation.id === `group_${groupId}`) {
+        setActiveConversation(null);
+        setMessagingView('conversations');
+        setConversationMessages([]);
+      }
+    } catch (error) {
+      console.error('Failed to delete group:', error);
+      alert('Failed to delete group. You can only delete groups you created.');
+    }
+  };
+
+  const handleDirectMessageKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (activeConversation?.type === 'direct') {
+        handleSendDirectMessage();
+      } else {
+        handleSendGroupMessage();
+      }
+    }
+  };
+
+  // Get current position and set search center + open search popup
+  const handleLocateMe = () => {
+    if (!('geolocation' in navigator)) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCurrentLocation(loc);
+        // center map on current location; Search popup is not opened by default
+      },
+      (err) => {
+        console.error('Geolocation error', err);
+        alert('Unable to retrieve your location: ' + (err.message || err.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   return (
     <div className="relative w-screen h-screen bg-gray-100">
-      {/* Left middle 3 bubble menu */}
+      {/* Left middle bubble menu using SideButton components */}
       <div className="absolute top-1/2 left-8 transform -translate-y-1/2 z-40">
         <div className="flex flex-col space-y-3">
           {[
-            // Map pointer icon
-            <svg key={0} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>,
-            // AI letters
-            <div key={1} className="font-bold text-lg leading-none">AI</div>,
-            // Message box icon
-            <svg key={2} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>,
-            // Logout icon
-            <svg key={3} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16,17 21,12 16,7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
+            BUTTON_CONFIGS.SEARCH.icon,
+            BUTTON_CONFIGS.AI_ASSISTANT.icon,
+            BUTTON_CONFIGS.MESSAGES.icon,
+            BUTTON_CONFIGS.LOGOUT.icon
           ].map((icon, i) => (
-            <div
+            <SideButtonBubble
               key={i}
-              className={`w-12 h-12 rounded-full cursor-pointer transition-colors flex items-center justify-center ${
-                activePopup === i 
-                  ? 'bg-white shadow-lg text-[#00af64]' 
-                  : i === 3
-                  ? 'bg-red-500 hover:bg-red-600 text-white' // Special styling for logout
-                  : 'bg-[#00af64] hover:bg-[#00c770] text-white'
-              }`}
+              icon={icon}
+              isActive={activePopup === i}
+              isSpecial={i === 3}
               onClick={() => i === 3 ? handleLogout() : setActivePopup(activePopup === i ? null : i)}
-            >
-              {icon}
-            </div>
+            />
           ))}
         </div>
-
-        {/* Dropdown */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="mt-2 bg-white rounded-xl shadow-lg p-3 w-40"
-            >
-              <ul className="space-y-2 text-sm">
-                <li className="hover:text-[#00eb64] cursor-pointer">Home</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Profile</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Settings</li>
-                <li className="hover:text-[red] cursor-pointer">Logout</li>
-              </ul>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Expanding Popup Windows */}
@@ -227,18 +640,18 @@ export default function Homescreen() {
                 {activePopup === 0 && (
                   <div className="h-full flex flex-col">
                     <h2 className="text-2xl font-bold text-white mb-4">Search</h2>
-                    
+                    <Searchbar onSelect={(loc) => setSearchCenter(loc)} />
                   </div>
                 )}
                 
                 {activePopup === 1 && (
                   <div className="h-full flex flex-col">
-                    <h2 className="text-2xl font-bold text-white mb-4">Chat with MApI</h2>
+                    <h2 className="text-2xl font-bold text-black mb-4">Chat with MApI</h2>
                     
                     {/* Messages Container */}
                     <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
                       {messages.length === 0 && (
-                        <div className="text-white text-opacity-60 text-center py-8">
+                        <div className="text-black text-opacity-60 text-center py-8">
                           <p>Start a conversation with MApI!</p>
                           <p className="text-sm mt-2">Ask me anything about locations, directions, or places.</p>
                         </div>
@@ -256,7 +669,7 @@ export default function Homescreen() {
                                 : 'bg-white bg-opacity-10 text-black'
                             }`}
                           >
-                            <p className="text-sm">{message.content}</p>
+                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                             <p className="text-xs text-black text-opacity-50 mt-1">
                               {message.timestamp.toLocaleTimeString()}
                             </p>
@@ -306,9 +719,121 @@ export default function Homescreen() {
                 
                 {activePopup === 2 && (
                   <div className="h-full flex flex-col">
-                    <h2 className="text-2xl font-bold text-white mb-4">DMs</h2>
-
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-2xl font-bold text-black">Messages</h2>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setMessagingView('search')}
+                          className={`p-2 rounded-lg transition-colors relative ${
+                            messagingView === 'search' 
+                              ? 'bg-white bg-opacity-30' 
+                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                          }`}
+                          title="Search Friends"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                          </svg>
+                          {incomingRequests.length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                              {incomingRequests.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setMessagingView('groups')}
+                          className={`p-2 rounded-lg transition-colors ${
+                            messagingView === 'groups' 
+                              ? 'bg-white bg-opacity-30' 
+                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                          }`}
+                          title="Create Group"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
+
+                    {/* Conversations View */}
+                    {messagingView === 'conversations' && (
+                      <ConversationList
+                        conversations={conversations}
+                        friends={friends}
+                        groups={groups}
+                        user={user}
+                        onConversationClick={openConversation}
+                        onDeleteGroup={handleDeleteGroup}
+                      />
+                    )}
+
+                    {/* Search Friends View */}
+                    {messagingView === 'search' && (
+                      <FriendSearch
+                        searchQuery={searchQuery}
+                        searchResults={searchResults}
+                        friends={friends}
+                        incomingRequests={incomingRequests}
+                        outgoingRequests={outgoingRequests}
+                        isLoading={isLoading}
+                        onSearchQueryChange={(query) => {
+                          setSearchQuery(query);
+                          searchFriends(query);
+                        }}
+                        onAddFriend={addFriend}
+                        onAcceptFriend={acceptFriend}
+                        onRejectFriend={rejectFriend}
+                        onCancelRequest={cancelRequest}
+                        onBack={() => setMessagingView('conversations')}
+                      />
+                    )}
+
+                    {/* Create Group View */}
+                    {messagingView === 'groups' && (
+                      <GroupCreation
+                        groupName={newGroupName}
+                        selectedMembers={friends.filter(f => selectedFriendsForGroup.includes(f.uid))}
+                        friends={friends}
+                        onGroupNameChange={setNewGroupName}
+                        onMemberToggle={(friend) => {
+                          if (selectedFriendsForGroup.includes(friend.uid)) {
+                            setSelectedFriendsForGroup(prev => prev.filter(id => id !== friend.uid));
+                          } else {
+                            setSelectedFriendsForGroup(prev => [...prev, friend.uid]);
+                          }
+                        }}
+                        onCreateGroup={handleCreateGroup}
+                        onBack={() => setMessagingView('conversations')}
+                      />
+                    )}
+
+                    {/* Chat View */}
+                    {messagingView === 'chat' && activeConversation && (
+                      <ChatView
+                        conversation={{
+                          type: activeConversation.type,
+                          friend: activeConversation.type === 'direct' 
+                            ? friends.find(f => activeConversation.participants.includes(f.uid))
+                            : undefined,
+                          group: activeConversation.type === 'group'
+                            ? groups.find(g => activeConversation.participants.every(p => g.members.includes(p)))
+                            : undefined
+                        }}
+                        messages={conversationMessages}
+                        newMessage={directMessageInput}
+                        currentUserId={user?.uid || ''}
+                        getSenderName={getSenderName}
+                        onNewMessageChange={setDirectMessageInput}
+                        onSendMessage={activeConversation.type === 'direct' ? handleSendDirectMessage : handleSendGroupMessage}
+                        onBack={() => setMessagingView('conversations')}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -316,10 +841,239 @@ export default function Homescreen() {
         )}
       </AnimatePresence>
 
-      {/* Rest of your page content */}
-      <div className="flex items-center justify-center h-full">
-        <h1 className="text-2xl font-bold">My Home Screen</h1>
+      {/* Floating locate button (bottom-right) */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          aria-label="Locate me"
+          onClick={handleLocateMe}
+          className="w-12 h-12 rounded-full bg-[#0f9d63] text-white shadow-lg flex items-center justify-center hover:bg-[#0e8f57] transition-shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0f9d63]"
+        >
+          {/* higher-contrast target icon (white) */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" fill="white" />
+            <path d="M12 2v2" stroke="white" />
+            <path d="M12 20v2" stroke="white" />
+            <path d="M2 12h2" stroke="white" />
+            <path d="M20 12h2" stroke="white" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Google Maps Background */}
+      <div className="absolute inset-0 z-0">
+        <APIProvider apiKey={'AIzaSyBt_ZhVFjm1l46fNDHf8B4v3NpwXHgeluU'}>
+          <Map
+            style={{width: '100%', height: '100%'}}
+            defaultCenter={{lat: 33.425, lng: -111.9400}}
+            defaultZoom={13}
+            gestureHandling='greedy'
+            disableDefaultUI
+          />
+          <MapController center={searchCenter} />
+          <Markers onMarkerClick={(loc) => { setSearchCenter(loc); setActivePopup(0); }} />
+          <SearchMarker center={searchCenter} />
+          <CurrentLocationMarker center={currentLocation} />
+        </APIProvider>
+      </div>
+      </div>
+  );
+}
+
+// MapController component from mapsearch.tsx
+function MapController({center}:{center: {lat:number, lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if(!map || !center) return;
+    map.panTo(center);
+    map.setZoom(13);
+  }, [map, center]);
+  return null;
+}
+
+// Searchbar component from mapsearch.tsx
+function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number} | null) => void}) {
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return DATA.filter((name) => name.toLowerCase().includes(q));
+  }, [query]);
+
+  // If the query is cleared, notify parent to clear the selected search
+  useEffect(() => {
+    if (query.trim() === "") {
+      onSelect && onSelect(null);
+    }
+  }, [query, onSelect]);
+
+  return (
+    <div className="w-full max-w-md">
+      <label htmlFor="search-input" className="sr-only">Search</label>
+      <input
+        id="search-input"
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search for a location"
+        className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring"
+      />
+
+      <div className="mt-2">
+        {query === "" ? (
+          <div className="text-sm text-black text-opacity-60">Type to search</div>
+        ) : results.length === 0 ? (
+          <div className="text-sm text-black text-opacity-60">No results</div>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {results.map((r) => (
+              <li
+                key={r}
+                className="flex justify-between bg-white bg-opacity-20 p-2 rounded cursor-pointer hover:bg-opacity-30"
+                onClick={() => onSelect && onSelect(COORDS[r])}
+              >
+                <span className="font-medium text-black">{r}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
+}
+
+// Markers component: creates google.maps.Marker for each entry in COORDS
+function Markers({onMarkerClick}:{onMarkerClick?: (loc:{lat:number,lng:number}) => void}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const markers: google.maps.Marker[] = [];
+    const infoWindow = new google.maps.InfoWindow();
+
+    // Use entries so we have the name associated with each coordinate
+    Object.entries(COORDS).forEach(([name, coord]) => {
+      const marker = new google.maps.Marker({
+        position: coord,
+        map,
+      });
+      marker.addListener('click', () => {
+        // Open a single InfoWindow for clicked marker
+        infoWindow.setContent(`<div style="padding:6px 8px;font-weight:600;">${name}</div>`);
+        infoWindow.open({ map, anchor: marker });
+        map.panTo(coord);
+        map.setZoom(13);
+        onMarkerClick && onMarkerClick(coord);
+      });
+      markers.push(marker);
+    });
+
+    // Close infoWindow and remove markers on cleanup
+    return () => {
+      infoWindow.close();
+      markers.forEach(m => m.setMap(null));
+    };
+  }, [map, onMarkerClick]);
+
+  return null;
+}
+
+// SearchMarker: single marker representing the current search result
+function SearchMarker({center}:{center: {lat:number,lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+
+    let marker: google.maps.Marker | null = null;
+
+    if (center) {
+      // SVG pin for search marker (green)
+      const svg = `
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>
+          <path fill='%2300af64' d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z'/>
+          <circle cx='12' cy='9' r='2.5' fill='white'/>
+        </svg>`;
+      const url = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+
+      marker = new google.maps.Marker({
+        position: center,
+        map,
+        title: 'Search result',
+        // icon,
+        animation: google.maps.Animation.BOUNCE,
+      });
+      // stop bouncing after a short duration so it doesn't bounce forever
+      setTimeout(() => {
+        try { marker && marker.setAnimation(null); } catch (e) {}
+      }, 1200);
+      map.panTo(center);
+      map.setZoom(13);
+    }
+
+    return () => {
+      if (marker) {
+        marker.setMap(null);
+        marker = null;
+      }
+    };
+  }, [map, center]);
+
+  return null;
+}
+
+// CurrentLocationMarker: renders the user's location as a character of their choice
+function CurrentLocationMarker({center}:{center: {lat:number,lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    let advMarker: any = null;
+    let fallbackMarker: google.maps.Marker | null = null;
+
+    if (center) {
+      // create an img element to use as the AdvancedMarkerElement content
+  const img = document.createElement('img');
+  const monkeyUrl = typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '';
+  img.src = monkeyUrl;
+      img.alt = 'You are here';
+      // style so the image is bottom-center anchored (tip at location)
+      img.style.width = '40px';
+      img.style.height = '40px';
+      img.style.transform = 'translate(-50%, -100%)';
+
+      // Use AdvancedMarkerElement when available (Maps JS advanced markers)
+      if (google && google.maps && (google.maps as any).marker && (google.maps as any).marker.AdvancedMarkerElement) {
+        advMarker = new (google.maps as any).marker.AdvancedMarkerElement({
+          map,
+          position: center,
+          content: img,
+          title: 'Your location',
+        });
+      } else {
+        // Fallback to a regular marker using the PNG as icon
+        const icon = {
+          url: typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '',
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 40),
+        } as any;
+        fallbackMarker = new google.maps.Marker({
+          position: center,
+          map,
+          title: 'Your location',
+          icon,
+        });
+      }
+
+      try { map.panTo(center); } catch (e) {}
+    }
+
+    return () => {
+      try {
+        if (advMarker && typeof advMarker.setMap === 'function') advMarker.setMap(null);
+      } catch (e) {}
+      if (fallbackMarker) {
+        fallbackMarker.setMap(null);
+        fallbackMarker = null;
+      }
+    };
+  }, [map, center]);
+
+  return null;
 }

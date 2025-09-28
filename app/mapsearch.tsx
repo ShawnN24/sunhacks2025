@@ -4,14 +4,24 @@ import {APIProvider, Map, useMap} from '@vis.gl/react-google-maps';
 
 export default function Home() {
   const [center, setCenter] = useState<{lat:number, lng:number} | null>(null);
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    return (
+      <div className="p-8">
+        <h2 className="text-lg font-semibold">Google Maps API key not found</h2>
+        <p className="mt-2 text-sm text-gray-600">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in your <code>.env.local</code> and restart the dev server.</p>
+      </div>
+    );
+  }
   return (
       <div>
         <div className="p-8 pb-20 gap-16">
           <Searchbar onSelect={(loc) => setCenter(loc)} />
           <div id="app" className="w-full h-[600px]">
-            <APIProvider apiKey = {'AIzaSyBt_ZhVFjm1l46fNDHf8B4v3NpwXHgeluU'}>
+            <APIProvider apiKey={apiKey}>
               <Map
-                style={{width:'calc(100vw-48px)', height:'100vh'}}
+                style={{width: 'calc(100vw - 48px)', height: '100vh'}}
                 defaultCenter={{lat:33.425, lng: -111.9400}}
                 defaultZoom={13}
                 gestureHandling='greedy'
