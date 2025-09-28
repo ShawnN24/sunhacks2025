@@ -1,0 +1,285 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+export default function Homescreen() {
+  const [open, setOpen] = useState(false);
+  const [activePopup, setActivePopup] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: inputMessage,
+          history: messages.map(msg => ({
+            role: msg.role,
+            content: msg.content
+          }))
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        throw new Error(data.error || 'Failed to get response');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <div className="relative w-screen h-screen bg-gray-100">
+      {/* Left middle 3 bubble menu */}
+      <div className="absolute top-1/2 left-8 transform -translate-y-1/2 z-40">
+        <div className="flex flex-col space-y-3">
+          {[
+            // Map pointer icon
+            <svg key={0} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>,
+            // AI letters
+            <div key={1} className="font-bold text-lg leading-none">AI</div>,
+            // Message box icon
+            <svg key={2} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          ].map((icon, i) => (
+            <div
+              key={i}
+              className={`w-12 h-12 rounded-full cursor-pointer transition-colors flex items-center justify-center ${
+                activePopup === i 
+                  ? 'bg-white shadow-lg text-[#00af64]' 
+                  : 'bg-[#00af64] hover:bg-[#00c770] text-white'
+              }`}
+              onClick={() => setActivePopup(activePopup === i ? null : i)}
+            >
+              {icon}
+            </div>
+          ))}
+        </div>
+
+        {/* Dropdown */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="mt-2 bg-white rounded-xl shadow-lg p-3 w-40"
+            >
+              <ul className="space-y-2 text-sm">
+                <li className="hover:text-[#00eb64] cursor-pointer">Home</li>
+                <li className="hover:text-[#00eb64] cursor-pointer">Profile</li>
+                <li className="hover:text-[#00eb64] cursor-pointer">Settings</li>
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Expanding Popup Windows */}
+      <AnimatePresence>
+        {activePopup !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-30"
+          >
+            {/* Expanding rectangle from bubble position */}
+            <motion.div
+              initial={{ 
+                width: "48px", 
+                height: "48px", 
+                x: 32, // left-8 = 32px (bubble container position)
+                y: `calc(50% - 24px + ${activePopup * 60 - 60}px)`, // Exact bubble position from middle
+                borderRadius: "50%"
+              }}
+              animate={{ 
+                width: "400px", 
+                height: "100vh", 
+                x: 104, // Position to the right of left bubbles (32px + 72px gap)
+                y: 0, // Start from top of screen
+                borderRadius: "12px"
+              }}
+              exit={{ 
+                width: "48px", 
+                height: "48px", 
+                x: 32, // Return to bubble container position
+                y: `calc(50% - 24px + ${activePopup * 60 - 60}px)`, // Return to exact bubble position
+                borderRadius: "50%"
+              }}
+              transition={{ 
+                type: "spring", 
+                damping: 20, 
+                stiffness: 300,
+                duration: 0.4
+              }}
+              className="absolute overflow-hidden bg-[#00af64] shadow-2xl"
+            >
+              {/* Content area */}
+              <div className="p-6 h-full">
+                {/* Different content for each popup */}
+                {activePopup === 0 && (
+                  <div className="h-full flex flex-col">
+                    <h2 className="text-2xl font-bold text-white mb-4">Search</h2>
+                    
+                  </div>
+                )}
+                
+                {activePopup === 1 && (
+                  <div className="h-full flex flex-col">
+                    <h2 className="text-2xl font-bold text-white mb-4">Chat with MApI</h2>
+                    
+                    {/* Messages Container */}
+                    <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
+                      {messages.length === 0 && (
+                        <div className="text-white text-opacity-60 text-center py-8">
+                          <p>Start a conversation with MApI!</p>
+                          <p className="text-sm mt-2">Ask me anything about locations, directions, or places.</p>
+                        </div>
+                      )}
+                      
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] p-3 rounded-lg ${
+                              message.role === 'user'
+                                ? 'bg-white bg-opacity-20 text-black'
+                                : 'bg-white bg-opacity-10 text-black'
+                            }`}
+                          >
+                            <p className="text-sm">{message.content}</p>
+                            <p className="text-xs text-black text-opacity-50 mt-1">
+                              {message.timestamp.toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {isLoading && (
+                        <div className="flex justify-start">
+                          <div className="bg-white bg-opacity-10 text-black p-3 rounded-lg">
+                            <div className="flex space-x-1">
+                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce"></div>
+                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div ref={messagesEndRef} />
+                    </div>
+                    
+                    {/* Input Area */}
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={inputMessage}
+                        onChange={(e) => setInputMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Ask MApI anything..."
+                        className="flex-1 p-3 rounded-lg bg-white bg-opacity-20 text-black placeholder-white placeholder-opacity-60 focus:outline-none focus:bg-opacity-30"
+                        disabled={isLoading}
+                      />
+                      <button
+                        onClick={sendMessage}
+                        disabled={!inputMessage.trim() || isLoading}
+                        className="px-4 py-3 bg-white bg-opacity-20 text-black rounded-lg hover:bg-opacity-30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13"/>
+                          <polygon points="22,2 15,22 11,13 2,9 22,2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {activePopup === 2 && (
+                  <div className="h-full flex flex-col">
+                    <h2 className="text-2xl font-bold text-white mb-4">DMs</h2>
+
+                    </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rest of your page content */}
+      <div className="flex items-center justify-center h-full">
+        <h1 className="text-2xl font-bold">My Home Screen</h1>
+      </div>
+    </div>
+  );
+}
