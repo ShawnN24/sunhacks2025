@@ -32,6 +32,5 @@ export default function Index() {
   if (user) {
     return <Homescreen />;
   }
-  
   return <Login />;
 }
