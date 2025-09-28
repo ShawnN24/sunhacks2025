@@ -76,19 +76,79 @@ export default function FriendsMarkers({
     friendsLocations.forEach((friend) => {
       const position = { lat: friend.latitude, lng: friend.longitude };
       
-      // Create custom marker icon using friend's photo
-      const createMarkerIcon = (photoURL?: string, isOnline: boolean = true) => {
+      // Create custom marker using HTML element (like ConversationList - no CORS issues!)
+      const createMarkerElement = (friend: FriendLocation, isOnline: boolean = true) => {
+        const markerDiv = document.createElement('div');
+        markerDiv.innerHTML = `
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+            <!-- Profile image with status ring -->
+            <div style="
+              position: relative;
+              width: 50px;
+              height: 50px;
+              border: 4px solid ${isOnline ? '#10B981' : '#6B7280'};
+              border-radius: 50%;
+              background: white;
+              padding: 2px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            ">
+              <img
+                src="${friend.photoURL || 'https://via.placeholder.com/40'}"
+                alt="${friend.displayName}"
+                style="
+                  width: 100%;
+                  height: 100%;
+                  border-radius: 50%;
+                  object-fit: cover;
+                "
+                onerror="this.src='https://ui-avatars.io/api/?name=${encodeURIComponent(friend.displayName)}&background=00af64&color=fff&size=40'"
+              />
+              <!-- Online indicator dot -->
+              ${isOnline ? `
+                <div style="
+                  position: absolute;
+                  bottom: 2px;
+                  right: 2px;
+                  width: 12px;
+                  height: 12px;
+                  background: #10B981;
+                  border: 2px solid white;
+                  border-radius: 50%;
+                "></div>
+              ` : ''}
+            </div>
+            <!-- Map pointer -->
+            <div style="
+              width: 0;
+              height: 0;
+              border-left: 8px solid transparent;
+              border-right: 8px solid transparent;
+              border-top: 12px solid ${isOnline ? '#10B981' : '#6B7280'};
+              margin-top: -2px;
+            "></div>
+          </div>
+        `;
+        return markerDiv;
+      };
+
+      // Create custom marker with proxied profile image (no CORS issues!)
+      const createMarkerIcon = (friend: FriendLocation, isOnline: boolean = true) => {
+        const size = 50;
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const size = 50;
         canvas.width = size;
-        canvas.height = size;
+        canvas.height = size + 12;
 
-        if (ctx) {
-          // Draw outer ring (online/offline indicator)
+        if (!ctx) return '';
+
+        const drawBase = () => {
+          // Clear canvas
+          ctx.clearRect(0, 0, size, size + 12);
+
+          // Draw outer ring (status indicator)
           ctx.beginPath();
           ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI);
-          ctx.strokeStyle = isOnline ? '#10B981' : '#6B7280'; // Green for online, gray for offline
+          ctx.strokeStyle = isOnline ? '#10B981' : '#6B7280';
           ctx.lineWidth = 4;
           ctx.stroke();
 
@@ -98,60 +158,100 @@ export default function FriendsMarkers({
           ctx.fillStyle = 'white';
           ctx.fill();
 
-          if (photoURL) {
-            // Load and draw friend's photo
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(size / 2, size / 2, size / 2 - 8, 0, 2 * Math.PI);
-              ctx.clip();
-              ctx.drawImage(img, 8, 8, size - 16, size - 16);
-              ctx.restore();
-              
-              // Update marker icon with the loaded image
-              const marker = markersRef.current.get(friend.userId);
-              if (marker) {
-                marker.setIcon({
-                  url: canvas.toDataURL(),
-                  scaledSize: new google.maps.Size(size, size),
-                  anchor: new google.maps.Point(size / 2, size)
-                });
-              }
-            };
-            img.onerror = () => {
-              // Fallback to initials if image fails to load
-              drawInitials();
-            };
-            img.src = photoURL;
-          } else {
+          // Draw pointer
+          ctx.beginPath();
+          ctx.moveTo(size / 2 - 6, size);
+          ctx.lineTo(size / 2, size + 12);
+          ctx.lineTo(size / 2 + 6, size);
+          ctx.closePath();
+          ctx.fillStyle = isOnline ? '#10B981' : '#6B7280';
+          ctx.fill();
+        };
+
+        const drawInitials = () => {
+          // Draw initials circle
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, size / 2 - 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#00af64';
+          ctx.fill();
+          
+          // Draw initials text
+          const initials = friend.displayName
+            .split(' ')
+            .map(name => name.charAt(0))
+            .join('')
+            .substring(0, 2)
+            .toUpperCase();
+
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(initials, size / 2, size / 2);
+        };
+
+        const drawProfileImage = (img: HTMLImageElement) => {
+          ctx.save();
+          
+          // Create circular clipping path
+          ctx.beginPath();
+          ctx.arc(size / 2, size / 2, size / 2 - 8, 0, 2 * Math.PI);
+          ctx.clip();
+          
+          // Draw the profile image
+          ctx.drawImage(img, 8, 8, size - 16, size - 16);
+          ctx.restore();
+        };
+
+        // Draw base elements
+        drawBase();
+
+        // Try to load profile image if available
+        if (friend.photoURL) {
+          const img = new Image();
+          
+          img.onload = () => {
+            // Redraw base first
+            drawBase();
+            drawProfileImage(img);
+            
+            // Update marker icon
+            const marker = markersRef.current.get(friend.userId);
+            if (marker) {
+              marker.setIcon({
+                url: canvas.toDataURL(),
+                scaledSize: new google.maps.Size(size, size + 12),
+                anchor: new google.maps.Point(size / 2, size + 12)
+              });
+            }
+          };
+
+          img.onerror = () => {
+            console.warn('Failed to load profile image for', friend.displayName, '- using initials');
+            drawBase();
             drawInitials();
-          }
-
-          function drawInitials() {
-            if (!ctx) return;
             
-            // Draw initials as fallback
-            const initials = friend.displayName
-              .split(' ')
-              .map(name => name.charAt(0))
-              .join('')
-              .substring(0, 2)
-              .toUpperCase();
+            const marker = markersRef.current.get(friend.userId);
+            if (marker) {
+              marker.setIcon({
+                url: canvas.toDataURL(),
+                scaledSize: new google.maps.Size(size, size + 12),
+                anchor: new google.maps.Point(size / 2, size + 12)
+              });
+            }
+          };
 
-            ctx.fillStyle = '#00af64';
-            ctx.fillRect(8, 8, size - 16, size - 16);
-            
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(initials, size / 2, size / 2);
-          }
+          // Use the proxy to avoid CORS issues
+          img.src = `/api/proxy-image?url=${encodeURIComponent(friend.photoURL)}`;
+          
+          // Return initial state with initials while image loads
+          drawInitials();
+          return canvas.toDataURL();
+        } else {
+          // No photo URL, use initials directly
+          drawInitials();
+          return canvas.toDataURL();
         }
-
-        return canvas.toDataURL();
       };
 
       // Create marker
@@ -160,9 +260,9 @@ export default function FriendsMarkers({
         map,
         title: `${friend.displayName} - ${friend.isOnline ? 'Online' : 'Offline'}`,
         icon: {
-          url: createMarkerIcon(friend.photoURL, friend.isOnline),
-          scaledSize: new google.maps.Size(50, 50),
-          anchor: new google.maps.Point(25, 50)
+          url: createMarkerIcon(friend, friend.isOnline),
+          scaledSize: new google.maps.Size(50, 62),
+          anchor: new google.maps.Point(25, 62)
         },
         zIndex: friend.isOnline ? 1000 : 500 // Online friends appear on top
       });
