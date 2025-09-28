@@ -36,6 +36,15 @@ export default function TriangulationButton({
     setResult(null);
 
     try {
+      // Validate that we have location data
+      if (conversationType === 'direct' && friendLocations.length === 0) {
+        throw new Error('Friend location not available. Please ensure your friend has location sharing enabled.');
+      }
+      
+      if (conversationType === 'group' && friendLocations.length === 0) {
+        throw new Error('No group member locations available. Please ensure group members have location sharing enabled.');
+      }
+
       // Get current user's location
       const currentLocation = await TriangulationService.getCurrentLocation();
       
@@ -58,6 +67,13 @@ export default function TriangulationButton({
         throw new Error('Invalid triangulation parameters');
       }
 
+      console.log('Triangulation successful:', {
+        memberCount: friendLocations.length + 1,
+        meetingPoint: triangulationResult.meetingPoint,
+        suggestionsCount: triangulationResult.suggestions?.length || 0,
+        outliersFiltered: triangulationResult.outlierFiltering?.outliersRemoved || 0
+      });
+
       setResult(triangulationResult);
       onTriangulationResult?.(triangulationResult);
     } catch (err) {
@@ -71,6 +87,26 @@ export default function TriangulationButton({
 
   const hasFriendLocations = friendLocations.length > 0;
   const canTriangulate = hasFriendLocations && !isLoading;
+
+  const getButtonText = () => {
+    if (isLoading) return 'Finding activities...';
+    if (!hasFriendLocations) {
+      return conversationType === 'direct' 
+        ? 'Friend location needed' 
+        : 'Group locations needed';
+    }
+    const memberCount = friendLocations.length + 1; // +1 for current user
+    return `🎯 Find Activities (${memberCount} ${memberCount === 1 ? 'person' : 'people'})`;
+  };
+
+  const getStatusMessage = () => {
+    if (!hasFriendLocations) {
+      return conversationType === 'direct'
+        ? 'Your friend needs to enable location sharing to find activities together'
+        : `${friendLocations.length} group member${friendLocations.length !== 1 ? 's' : ''} have location sharing enabled`;
+    }
+    return null;
+  };
 
   return (
     <div className={`triangulation-container ${className}`}>
@@ -93,7 +129,7 @@ export default function TriangulationButton({
           </span>
         ) : (
           <span className="flex items-center gap-2">
-            🎯 Find Activities
+            {getButtonText()}
           </span>
         )}
       </button>
@@ -104,11 +140,39 @@ export default function TriangulationButton({
         </div>
       )}
 
+      {getStatusMessage() && (
+        <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+          💡 {getStatusMessage()}
+        </div>
+      )}
+
       {result && (
         <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg max-h-96 overflow-hidden">
+          {/* Triangulation Summary */}
+          <div className="mb-3 p-3 bg-white bg-opacity-60 rounded-lg border border-green-100">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-green-800 font-semibold">📍 Meeting Point Found</span>
+              {result.outlierFiltering?.enabled && result.outlierFiltering.outliersRemoved > 0 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  {result.outlierFiltering.outliersRemoved} outlier(s) filtered
+                </span>
+              )}
+            </div>
+            <div className="text-sm text-green-700">
+              <div>📍 <strong>Location:</strong> {result.meetingPoint.latitude.toFixed(6)}, {result.meetingPoint.longitude.toFixed(6)}</div>
+              {result.distance && (
+                <div>📏 <strong>Max distance:</strong> {result.distance} km from center</div>
+              )}
+              {result.estimatedTravelTime && (
+                <div>⏱️ <strong>Est. travel time:</strong> ~{result.estimatedTravelTime} minutes</div>
+              )}
+              <div>👥 <strong>Based on:</strong> {friendLocations.length + 1} location{friendLocations.length > 0 ? 's' : ''}</div>
+            </div>
+          </div>
+
           {result.suggestions && result.suggestions.length > 0 && (
             <div className="mt-3">
-              <strong className="text-green-800">Activities Found by Gemini AI:</strong>
+              <strong className="text-green-800">🎯 Activity Recommendations from Gemini AI:</strong>
               <div 
                 className="mt-2 h-64 overflow-y-auto border border-green-200 rounded-lg bg-white bg-opacity-30" 
                 style={{ 
