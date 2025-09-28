@@ -9,7 +9,7 @@ import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
-import monkeyMarkerUrl from './images/beardot.png';
+import monkeyMarkerUrl from '../images/beardot.png';
 
 interface Message {
   id: string;
