@@ -9,8 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "firebase": "^12.3.0",
     "@google/generative-ai": "^0.21.0",
+    "@vis.gl/react-google-maps": "^1.5.5",
+    "firebase": "^12.3.0",
     "framer-motion": "^12.23.22",
     "next": "15.5.4",
     "react": "19.1.0",

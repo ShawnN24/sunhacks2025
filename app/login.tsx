@@ -6,7 +6,6 @@ import { User } from "firebase/auth";
 import GoogleAuthButton from "./components/GoogleAuthButton";
 import { onAuthStateChange } from "@/lib/firebase/auth";
 import { motion } from "framer-motion";
-import Image from "next/image";
 
 export default function Login() {
   const [user, setUser] = useState<User | null>(null);

@@ -1,11 +1,9 @@
 'use client'
-import Image from "next/image";
 import React, {useState, useMemo, useEffect} from 'react';
-import {createRoot} from 'react-dom/client';
 import {APIProvider, Map, useMap} from '@vis.gl/react-google-maps';
 
 export default function Home() {
-  const [center, setCenter] = useState<{lat:Number, lng:number} | null>(null);
+  const [center, setCenter] = useState<{lat:number, lng:number} | null>(null);
   return (
       <div>
         <div className="p-8 pb-20 gap-16">

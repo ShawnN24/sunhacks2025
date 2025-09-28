@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
     // Format conversation history
-    const chatHistory = history.map((msg: any) => ({
+    const chatHistory = history.map((msg: { role: string; content: string }) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.content }]
     }));

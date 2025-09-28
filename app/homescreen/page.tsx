@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { APIProvider, Map } from '@vis.gl/react-google-maps';
 
 interface Message {
   id: string;
@@ -14,7 +15,6 @@ interface Message {
 }
 
 export default function Homescreen() {
-  const [open, setOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [activePopup, setActivePopup] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -159,26 +159,6 @@ export default function Homescreen() {
             </div>
           ))}
         </div>
-
-        {/* Dropdown */}
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="mt-2 bg-white rounded-xl shadow-lg p-3 w-40"
-            >
-              <ul className="space-y-2 text-sm">
-                <li className="hover:text-[#00eb64] cursor-pointer">Home</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Profile</li>
-                <li className="hover:text-[#00eb64] cursor-pointer">Settings</li>
-                <li className="hover:text-[red] cursor-pointer">Logout</li>
-              </ul>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Expanding Popup Windows */}
@@ -316,9 +296,17 @@ export default function Homescreen() {
         )}
       </AnimatePresence>
 
-      {/* Rest of your page content */}
-      <div className="flex items-center justify-center h-full">
-        <h1 className="text-2xl font-bold">My Home Screen</h1>
+      {/* Google Maps Background */}
+      <div className="absolute inset-0 z-0">
+        <APIProvider apiKey={'AIzaSyBt_ZhVFjm1l46fNDHf8B4v3NpwXHgeluU'}>
+          <Map
+            style={{width: '100%', height: '100%'}}
+            defaultCenter={{lat: 33.425, lng: -111.9400}}
+            defaultZoom={13}
+            gestureHandling='greedy'
+            disableDefaultUI
+          />
+        </APIProvider>
       </div>
     </div>
   );
