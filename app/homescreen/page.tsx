@@ -515,6 +515,34 @@ export default function Homescreen() {
     }
   };
 
+  // New handler functions that accept message content directly
+  const handleSendDirectMessageWithContent = async (messageContent: string) => {
+    if (!messageContent.trim() || !activeConversation || !user) return;
+
+    const receiverId = activeConversation.participants.find(p => p !== user.uid);
+    if (!receiverId) return;
+
+    try {
+      await sendDirectMessage(user.uid, receiverId, messageContent.trim());
+      // The real-time listener will update the conversation messages
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
+  };
+
+  const handleSendGroupMessageWithContent = async (messageContent: string) => {
+    if (!messageContent.trim() || !activeConversation || !user) return;
+
+    try {
+      // Extract group ID from conversation ID (format: "group_${groupId}")
+      const groupId = activeConversation.id.replace('group_', '');
+      await sendGroupMessage(groupId, user.uid, messageContent.trim());
+      // The real-time listener will update the conversation messages
+    } catch (error) {
+      console.error('Failed to send group message:', error);
+    }
+  };
+
   const openConversation = async (conversation: Conversation) => {
     setActiveConversation(conversation);
     setMessagingView('chat');
@@ -951,6 +979,7 @@ export default function Homescreen() {
                         getSenderName={getSenderName}
                         onNewMessageChange={setDirectMessageInput}
                         onSendMessage={activeConversation.type === 'direct' ? handleSendDirectMessage : handleSendGroupMessage}
+                        onSendMessageWithContent={activeConversation.type === 'direct' ? handleSendDirectMessageWithContent : handleSendGroupMessageWithContent}
                         onBack={() => setMessagingView('conversations')}
                       />
                     )}
@@ -994,7 +1023,7 @@ export default function Homescreen() {
             mapTypeControl={false}
             streetViewControl={false}
             fullscreenControl={false}
-            zoomControl={true}
+            zoomControl={false}
           />
           <MapController 
             center={searchCenter} 

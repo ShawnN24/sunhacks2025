@@ -1,7 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { DirectMessage, GroupMessage, Friend, Group } from "./types";
+import { DirectMessage, GroupMessage, Friend, Group, UserLocation } from "./types";
+import TriangulationButton from "../TriangulationButton";
+import { useState, useEffect } from "react";
+import { getFriendsLocations, getGroupMembersLocations } from "@/lib/firebase/friends";
+import { MockTriangulationService } from "@/lib/mockTriangulationService";
 
 interface ChatViewProps {
   conversation: {
@@ -15,6 +19,7 @@ interface ChatViewProps {
   getSenderName?: (senderId: string) => string;
   onNewMessageChange?: (message: string) => void;
   onSendMessage?: () => void;
+  onSendMessageWithContent?: (message: string) => void;
   onBack?: () => void;
 }
 
@@ -26,8 +31,66 @@ export default function ChatView({
   getSenderName,
   onNewMessageChange,
   onSendMessage,
+  onSendMessageWithContent,
   onBack
 }: ChatViewProps) {
+  const handleSendToChat = (message: string) => {
+    if (onNewMessageChange) {
+      onNewMessageChange(message);
+    }
+  };
+
+  const handleSendMessage = (message: string) => {
+    // Close the triangulation panel first
+    setShowTriangulation(false);
+    // Use the direct send function if available, otherwise fall back to the old method
+    if (onSendMessageWithContent) {
+      onSendMessageWithContent(message);
+    } else {
+      // Fallback to the old method
+      if (onNewMessageChange) {
+        onNewMessageChange(message);
+      }
+      setTimeout(() => {
+        if (onSendMessage) {
+          onSendMessage();
+        }
+      }, 100);
+    }
+  };
+  const [friendLocations, setFriendLocations] = useState<UserLocation[]>([]);
+  const [showTriangulation, setShowTriangulation] = useState(false);
+
+  // Load friend/group member locations
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        if (conversation.type === 'direct' && conversation.friend) {
+          // For direct messages, get the friend's location
+          // Use mock data for testing
+          const locations = await MockTriangulationService.getMockFriendLocation(conversation.friend.uid);
+          setFriendLocations(locations);
+        } else if (conversation.type === 'group' && conversation.group) {
+          // For group messages, get all group member locations
+          // Use mock data for testing
+          const locations = await MockTriangulationService.getGroupMembersLocations(conversation.group.id, currentUserId);
+          setFriendLocations(locations);
+        }
+      } catch (error) {
+        console.error('Error loading friend locations:', error);
+        // Fallback to mock data on error
+        if (conversation.type === 'direct') {
+          const mockLocations = await MockTriangulationService.getMockFriendLocation('mock_friend');
+          setFriendLocations(mockLocations);
+        } else {
+          const mockLocations = await MockTriangulationService.getRandomMockLocations(3);
+          setFriendLocations(mockLocations);
+        }
+      }
+    };
+
+    loadLocations();
+  }, [conversation, currentUserId]);
   return (
     <div className="flex flex-col h-full">
       {/* Chat Header */}
@@ -79,7 +142,36 @@ export default function ChatView({
             </>
           )}
         </div>
+        
+        {/* Triangulation Button */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowTriangulation(!showTriangulation)}
+            className="p-2 text-black text-opacity-80 hover:text-opacity-100 hover:bg-white hover:bg-opacity-10 rounded-lg transition-all"
+            title="Find activities"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* Triangulation Panel */}
+      {showTriangulation && (
+        <div className="px-4 py-3 bg-white bg-opacity-5 border-b border-white border-opacity-10">
+          <TriangulationButton
+            currentUserId={currentUserId}
+            friendLocations={friendLocations}
+            groupId={conversation.type === 'group' ? conversation.group?.id : undefined}
+            conversationType={conversation.type}
+            onSendToChat={handleSendToChat}
+            onSendMessage={handleSendMessage}
+            className="w-full"
+          />
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
