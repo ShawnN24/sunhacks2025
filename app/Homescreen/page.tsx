@@ -85,8 +85,6 @@ export default function Homescreen() {
   const [searchCenter, setSearchCenter] = useState<{lat:number, lng:number} | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, name: string, address: string} | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   // Google Places API functions using server-side route
   const searchPlaces = async (query: string): Promise<Place[]> => {
@@ -726,6 +724,8 @@ export default function Homescreen() {
                     
                     <Searchbar 
                       onSelect={(place) => {
+                        // If the search was cleared, the parent will call onSelect(null)
+                        if (!place) return;
                         setSearchCenter({lat: place.lat, lng: place.lng});
                         // Set the selected location to show in the popup with actual place info
                         setSelectedLocation({
@@ -1011,7 +1011,6 @@ export default function Homescreen() {
               }
             }}
           />
-          <MapController center={searchCenter} />
           <Markers onMarkerClick={(loc) => { setSearchCenter(loc); setActivePopup(0); }} />
           <SearchMarker center={searchCenter} />
           <CurrentLocationMarker center={currentLocation} />
@@ -1022,7 +1021,7 @@ export default function Homescreen() {
 }
 
 // MapController component with click handling and enhanced zoom functionality
-function MapController({center, places, onLocationClick}:{center: {lat:number, lng:number} | null, places: Place[], onLocationClick?: (lat: number, lng: number, name: string, address: string) => void}){
+function MapController({center, places, onLocationClick}:{center: {lat:number, lng:number} | null, places?: Place[], onLocationClick?: (lat: number, lng: number, name: string, address: string) => void}){
   const map = useMap();
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
   const customInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
@@ -1304,7 +1303,7 @@ function MapController({center, places, onLocationClick}:{center: {lat:number, l
 }
 
 // Searchbar component with Google Places API
-function Searchbar({onSelect, onBackToSearch, onClearMemory}:{onSelect?: (place: Place) => void, onBackToSearch?: (restoreFunction: () => void) => void, onClearMemory?: (clearFunction: () => void) => void}) {
+function Searchbar({onSelect, onBackToSearch, onClearMemory}:{onSelect?: (place: Place | null) => void, onBackToSearch?: (restoreFunction: () => void) => void, onClearMemory?: (clearFunction: () => void) => void}) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -1420,36 +1419,108 @@ function Searchbar({onSelect, onBackToSearch, onClearMemory}:{onSelect?: (place:
   );
 }
 
-// Markers component: creates google.maps.Marker for each entry in COORDS
 function Markers({onMarkerClick}:{onMarkerClick?: (loc:{lat:number,lng:number}) => void}){
   const map = useMap();
+
   useEffect(() => {
     if (!map) return;
-    const markers: google.maps.Marker[] = [];
-    const infoWindow = new google.maps.InfoWindow();
 
-    // Use entries so we have the name associated with each coordinate
-    Object.entries(COORDS).forEach(([name, coord]) => {
-      const marker = new google.maps.Marker({
-        position: coord,
-        map,
-      });
-      marker.addListener('click', () => {
-        // Open a single InfoWindow for clicked marker
-        infoWindow.setContent(`<div style="padding:6px 8px;font-weight:600;">${name}</div>`);
-        infoWindow.open({ map, anchor: marker });
-        map.panTo(coord);
-        map.setZoom(13);
-        onMarkerClick && onMarkerClick(coord);
-      });
-      markers.push(marker);
-    });
+  const markers: google.maps.Marker[] = [];
+  const infoWindows: google.maps.InfoWindow[] = [];
+  let activeInfoWindow: google.maps.InfoWindow | null = null;
 
-    // Close infoWindow and remove markers on cleanup
-    return () => {
-      infoWindow.close();
+    const clearAll = () => {
       markers.forEach(m => m.setMap(null));
+      markers.length = 0;
+      infoWindows.forEach(iw => iw.close());
+      infoWindows.length = 0;
+      activeInfoWindow = null;
     };
+
+    const makeContent = (p: google.maps.places.PlaceResult | any) => {
+      const parts: string[] = [];
+      if (p.name) parts.push(`<div style="font-weight:700;margin-bottom:6px">${p.name}</div>`);
+      const address = p.formatted_address || p.vicinity || p.address;
+      if (address) parts.push(`<div style="font-size:13px;color:#374151">${address}</div>`);
+      if (p.formatted_phone_number || p.international_phone_number) parts.push(`<div style="font-size:12px;color:#374151;margin-top:6px">📞 ${p.formatted_phone_number || p.international_phone_number}</div>`);
+      if (p.website) parts.push(`<div style="font-size:12px;margin-top:6px"><a href="${p.website}" target="_blank" rel="noopener">Website</a></div>`);
+      if (p.rating) parts.push(`<div style="margin-top:6px;font-size:12px;color:#f59e0b">⭐ ${p.rating} ${p.user_ratings_total ? `(${p.user_ratings_total})` : ''}</div>`);
+      if (p.price_level !== undefined) parts.push(`<div style="font-size:12px;color:#6b7280">Price level: ${p.price_level}</div>`);
+      if (p.opening_hours && typeof p.opening_hours === 'object') {
+        const openNow = p.opening_hours.open_now ? 'Open now' : 'Closed';
+        parts.push(`<div style="font-size:12px;color:#10b981">${openNow}</div>`);
+        if (Array.isArray(p.opening_hours.weekday_text) && p.opening_hours.weekday_text.length) {
+          parts.push(`<div style="margin-top:6px;font-size:11px;color:#6b7280">${p.opening_hours.weekday_text.slice(0,7).map((s:string)=>`<div>${s}</div>`).join('')}</div>`);
+        }
+      }
+      if (p.place_id) parts.push(`<div style="margin-top:6px;font-size:11px"><a href="https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${p.place_id}" target="_blank" rel="noopener">Open in Google Maps</a></div>`);
+      return `<div style="max-width:320px;padding:8px">${parts.join('')}</div>`;
+    };
+
+    // When a user clicks a non-POI spot, just place a single marker and try to reverse-geocode
+    const showNearby = (lat: number, lng: number) => {
+      const loc = new google.maps.LatLng(lat, lng);
+      // create a single marker at the clicked location
+      const m = new google.maps.Marker({ position: { lat, lng }, map });
+      markers.push(m);
+
+      const iw = new google.maps.InfoWindow({ content: `<div style="padding:6px">Looking up address...</div>`, position: { lat, lng } });
+      infoWindows.push(iw);
+      if (activeInfoWindow) activeInfoWindow.close();
+      iw.open(map, m);
+      activeInfoWindow = iw;
+
+      // Try reverse geocoding to show an address if available
+      try {
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
+          if (status === 'OK' && results && results[0]) {
+            try {
+              const addr = results[0].formatted_address;
+              iw.setContent(`<div style="max-width:320px;padding:8px"><div style="font-weight:700;margin-bottom:6px">${addr}</div><div style="font-size:12px;color:#6b7280">Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}</div></div>`);
+            } catch (e) { /* ignore content errors */ }
+          } else {
+            try { iw.setContent(`<div style="padding:6px">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>`); } catch (e) {}
+          }
+        });
+      } catch (e) {
+        try { iw.setContent(`<div style="padding:6px">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>`); } catch (e) {}
+      }
+
+      onMarkerClick && onMarkerClick({ lat, lng });
+    };
+
+    const handleClick = (ev: any) => {
+      clearAll();
+      const lat = ev.latLng?.lat?.() ?? (ev.latLng?.lat || 0);
+      const lng = ev.latLng?.lng?.() ?? (ev.latLng?.lng || 0);
+      if (ev.placeId) {
+        if (typeof ev.stop === 'function') ev.stop();
+        const service = new google.maps.places.PlacesService(map);
+        service.getDetails({ placeId: ev.placeId, fields: ['name','formatted_address','rating','vicinity','geometry'] } as any, (result: google.maps.places.PlaceResult | null, status: google.maps.places.PlacesServiceStatus) => {
+          if (status === 'OK' && result) {
+            const pos = (result.geometry?.location as any) || { lat, lng };
+            const m = new google.maps.Marker({ position: pos as any, map });
+            markers.push(m);
+            const iw = new google.maps.InfoWindow({ content: makeContent(result), position: pos as any });
+            infoWindows.push(iw);
+            if (activeInfoWindow) activeInfoWindow.close();
+            iw.open(map, m);
+            activeInfoWindow = iw;
+            const latVal = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+            const lngVal = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
+            onMarkerClick && onMarkerClick({ lat: latVal ?? lat, lng: lngVal ?? lng });
+            return;
+          }
+          showNearby(lat, lng);
+        });
+        return;
+      }
+      showNearby(lat, lng);
+    };
+
+    const listener = map.addListener('click', handleClick);
+    return () => { try { (listener as any)?.remove?.(); } catch (e) { try { google.maps.event.removeListener(listener); } catch(e){} } clearAll(); };
   }, [map, onMarkerClick]);
 
   return null;
@@ -1476,7 +1547,7 @@ function SearchMarker({center}:{center: {lat:number,lng:number} | null}){
         position: center,
         map,
         title: 'Search result',
-        // icon,
+        icon: { url, scaledSize: new google.maps.Size(32,32), anchor: new google.maps.Point(16,32) } as any,
         animation: google.maps.Animation.BOUNCE,
       });
       // stop bouncing after a short duration so it doesn't bounce forever
