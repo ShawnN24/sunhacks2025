@@ -1,11 +1,15 @@
 "use client";
 
+// Minimal `google` declaration for runtime maps objects (avoid TS errors in this file)
+declare const google: any;
+
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { logout, onAuthStateChange } from "@/lib/firebase/auth";
 import { User } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
+import monkeyMarkerUrl from './images/beardot.png';
 
 interface Message {
   id: string;
@@ -32,6 +36,7 @@ export default function Homescreen() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [searchCenter, setSearchCenter] = useState<{lat:number, lng:number} | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{lat:number, lng:number} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -132,6 +137,27 @@ export default function Homescreen() {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  // Get current position and set search center + open search popup
+  const handleLocateMe = () => {
+    if (!('geolocation' in navigator)) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCurrentLocation(loc);
+        // center map on current location; Search popup is not opened by default
+      },
+      (err) => {
+        console.error('Geolocation error', err);
+        alert('Unable to retrieve your location: ' + (err.message || err.code));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   return (
@@ -310,6 +336,24 @@ export default function Homescreen() {
         )}
       </AnimatePresence>
 
+      {/* Floating locate button (bottom-right) */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <button
+          aria-label="Locate me"
+          onClick={handleLocateMe}
+          className="w-12 h-12 rounded-full bg-[#0f9d63] text-white shadow-lg flex items-center justify-center hover:bg-[#0e8f57] transition-shadow focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0f9d63]"
+        >
+          {/* higher-contrast target icon (white) */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" fill="white" />
+            <path d="M12 2v2" stroke="white" />
+            <path d="M12 20v2" stroke="white" />
+            <path d="M2 12h2" stroke="white" />
+            <path d="M20 12h2" stroke="white" />
+          </svg>
+        </button>
+      </div>
+
       {/* Google Maps Background */}
       <div className="absolute inset-0 z-0">
         <APIProvider apiKey={'AIzaSyBt_ZhVFjm1l46fNDHf8B4v3NpwXHgeluU'}>
@@ -321,9 +365,12 @@ export default function Homescreen() {
             disableDefaultUI
           />
           <MapController center={searchCenter} />
+          <Markers onMarkerClick={(loc) => { setSearchCenter(loc); setActivePopup(0); }} />
+          <SearchMarker center={searchCenter} />
+          <CurrentLocationMarker center={currentLocation} />
         </APIProvider>
       </div>
-    </div>
+      </div>
   );
 }
 
@@ -339,13 +386,20 @@ function MapController({center}:{center: {lat:number, lng:number} | null}){
 }
 
 // Searchbar component from mapsearch.tsx
-function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number}) => void}) {
+function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number} | null) => void}) {
   const [query, setQuery] = useState("");
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return DATA.filter((name) => name.toLowerCase().includes(q));
   }, [query]);
+
+  // If the query is cleared, notify parent to clear the selected search
+  useEffect(() => {
+    if (query.trim() === "") {
+      onSelect && onSelect(null);
+    }
+  }, [query, onSelect]);
 
   return (
     <div className="w-full max-w-md">
@@ -380,4 +434,141 @@ function Searchbar({onSelect}:{onSelect?: (loc:{lat:number,lng:number}) => void}
       </div>
     </div>
   );
+}
+
+// Markers component: creates google.maps.Marker for each entry in COORDS
+// function Markers({onMarkerClick}:{onMarkerClick?: (loc:{lat:number,lng:number}) => void}){
+//   const map = useMap();
+//   useEffect(() => {
+//     if (!map) return;
+//     const markers: google.maps.Marker[] = [];
+//     const infoWindow = new google.maps.InfoWindow();
+
+//     // Use entries so we have the name associated with each coordinate
+//     Object.entries(COORDS).forEach(([name, coord]) => {
+//       const marker = new google.maps.Marker({
+//         position: coord,
+//         map,
+//       });
+//       marker.addListener('click', () => {
+//         // Open a single InfoWindow for clicked marker
+//         infoWindow.setContent(`<div style="padding:6px 8px;font-weight:600;">${name}</div>`);
+//         infoWindow.open({ map, anchor: marker });
+//         map.panTo(coord);
+//         map.setZoom(13);
+//         onMarkerClick && onMarkerClick(coord);
+//       });
+//       markers.push(marker);
+//     });
+
+//     // Close infoWindow and remove markers on cleanup
+//     return () => {
+//       infoWindow.close();
+//       markers.forEach(m => m.setMap(null));
+//     };
+//   }, [map, onMarkerClick]);
+
+//   return null;
+// }
+
+// SearchMarker: single marker representing the current search result
+function SearchMarker({center}:{center: {lat:number,lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+
+    let marker: google.maps.Marker | null = null;
+
+    if (center) {
+      // SVG pin for search marker (green)
+      const svg = `
+        <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>
+          <path fill='%2300af64' d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z'/>
+          <circle cx='12' cy='9' r='2.5' fill='white'/>
+        </svg>`;
+      const url = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+
+      marker = new google.maps.Marker({
+        position: center,
+        map,
+        title: 'Search result',
+        // icon,
+        animation: google.maps.Animation.BOUNCE,
+      });
+      // stop bouncing after a short duration so it doesn't bounce forever
+      setTimeout(() => {
+        try { marker && marker.setAnimation(null); } catch (e) {}
+      }, 1200);
+      map.panTo(center);
+      map.setZoom(13);
+    }
+
+    return () => {
+      if (marker) {
+        marker.setMap(null);
+        marker = null;
+      }
+    };
+  }, [map, center]);
+
+  return null;
+}
+
+// CurrentLocationMarker: renders the user's location as a character of their choice
+function CurrentLocationMarker({center}:{center: {lat:number,lng:number} | null}){
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    let advMarker: any = null;
+    let fallbackMarker: google.maps.Marker | null = null;
+
+    if (center) {
+      // create an img element to use as the AdvancedMarkerElement content
+  const img = document.createElement('img');
+  const monkeyUrl = typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '';
+  img.src = monkeyUrl;
+      img.alt = 'You are here';
+      // style so the image is bottom-center anchored (tip at location)
+      img.style.width = '40px';
+      img.style.height = '40px';
+      img.style.transform = 'translate(-50%, -100%)';
+
+      // Use AdvancedMarkerElement when available (Maps JS advanced markers)
+      if (google && google.maps && (google.maps as any).marker && (google.maps as any).marker.AdvancedMarkerElement) {
+        advMarker = new (google.maps as any).marker.AdvancedMarkerElement({
+          map,
+          position: center,
+          content: img,
+          title: 'Your location',
+        });
+      } else {
+        // Fallback to a regular marker using the PNG as icon
+        const icon = {
+          url: typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '',
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 40),
+        } as any;
+        fallbackMarker = new google.maps.Marker({
+          position: center,
+          map,
+          title: 'Your location',
+          icon,
+        });
+      }
+
+      try { map.panTo(center); } catch (e) {}
+    }
+
+    return () => {
+      try {
+        if (advMarker && typeof advMarker.setMap === 'function') advMarker.setMap(null);
+      } catch (e) {}
+      if (fallbackMarker) {
+        fallbackMarker.setMap(null);
+        fallbackMarker = null;
+      }
+    };
+  }, [map, center]);
+
+  return null;
 }
