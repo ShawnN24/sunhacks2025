@@ -1598,7 +1598,7 @@ export default function Homescreen() {
           />
           <Markers onMarkerClick={(loc) => { setSearchCenter(loc); setActivePopup(0); }} />
           <SearchMarker center={searchCenter} />
-          <CurrentLocationMarker center={currentLocation} />
+          <CurrentLocationMarker center={currentLocation} user={user} />
           <FriendsMarkers 
             friendsLocations={friendsLocations}
             currentUserLocation={currentLocation}
@@ -2169,61 +2169,161 @@ function SearchMarker({center}:{center: {lat:number,lng:number} | null}){
   return null;
 }
 
-// CurrentLocationMarker: renders the user's location as a character of their choice
-function CurrentLocationMarker({center}:{center: {lat:number,lng:number} | null}){
+// CurrentLocationMarker: renders the user's location with profile avatar like friends markers
+function CurrentLocationMarker({center, user}:{center: {lat:number,lng:number} | null, user?: any}){
   const map = useMap();
   useEffect(() => {
-    if (!map) return;
-    let advMarker: any = null;
-    let fallbackMarker: google.maps.Marker | null = null;
+    if (!map || !center) return;
+    let marker: google.maps.Marker | null = null;
 
-    if (center) {
-      // create an img element to use as the AdvancedMarkerElement content
-  const img = document.createElement('img');
-  const monkeyUrl = typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '';
-  img.src = monkeyUrl;
-      img.alt = 'You are here';
-      // style so the image is bottom-center anchored (tip at location)
-      img.style.width = '40px';
-      img.style.height = '40px';
-      img.style.transform = 'translate(-50%, -100%)';
+    // Create custom marker icon with user's profile picture (same style as FriendsMarkers)
+    const createCurrentUserMarkerIcon = () => {
+      const size = 50;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = size;
+      canvas.height = size + 12;
 
-      // Use AdvancedMarkerElement when available (Maps JS advanced markers)
-      if (google && google.maps && (google.maps as any).marker && (google.maps as any).marker.AdvancedMarkerElement) {
-        advMarker = new (google.maps as any).marker.AdvancedMarkerElement({
-          map,
-          position: center,
-          content: img,
-          title: 'Your location',
-        });
+      if (!ctx) return '';
+
+      const drawBase = () => {
+        // Clear canvas
+        ctx.clearRect(0, 0, size, size + 12);
+
+        // Draw outer ring (blue for current user)
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#3B82F6'; // Blue color to distinguish from friends
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Draw white background circle
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 6, 0, 2 * Math.PI);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+
+        // Draw pointer
+        ctx.beginPath();
+        ctx.moveTo(size / 2 - 6, size);
+        ctx.lineTo(size / 2, size + 12);
+        ctx.lineTo(size / 2 + 6, size);
+        ctx.closePath();
+        ctx.fillStyle = '#3B82F6'; // Blue pointer
+        ctx.fill();
+      };
+
+      const drawInitials = () => {
+        // Draw initials circle
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 8, 0, 2 * Math.PI);
+        ctx.fillStyle = '#3B82F6';
+        ctx.fill();
+        
+        // Draw initials text
+        const displayName = user?.displayName || 'You';
+        const initials = displayName
+          .split(' ')
+          .map((name: string) => name.charAt(0))
+          .join('')
+          .substring(0, 2)
+          .toUpperCase();
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials, size / 2, size / 2);
+      };
+
+      const drawProfileImage = (img: HTMLImageElement) => {
+        ctx.save();
+        
+        // Create circular clipping path
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 8, 0, 2 * Math.PI);
+        ctx.clip();
+        
+        // Draw the profile image
+        ctx.drawImage(img, 8, 8, size - 16, size - 16);
+        ctx.restore();
+      };
+
+      // Draw base elements
+      drawBase();
+
+      // Try to load profile image if available
+      if (user?.photoURL) {
+        const img = new Image();
+        
+        img.onload = () => {
+          // Redraw base first
+          drawBase();
+          drawProfileImage(img);
+          
+          // Update marker icon
+          if (marker) {
+            marker.setIcon({
+              url: canvas.toDataURL(),
+              scaledSize: new google.maps.Size(size, size + 12),
+              anchor: new google.maps.Point(size / 2, size + 12)
+            });
+          }
+        };
+
+        img.onerror = () => {
+          console.warn('Failed to load current user profile image - using initials');
+          drawBase();
+          drawInitials();
+          
+          if (marker) {
+            marker.setIcon({
+              url: canvas.toDataURL(),
+              scaledSize: new google.maps.Size(size, size + 12),
+              anchor: new google.maps.Point(size / 2, size + 12)
+            });
+          }
+        };
+
+        // Use the proxy to avoid CORS issues
+        img.src = `/api/proxy-image?url=${encodeURIComponent(user.photoURL)}`;
+        
+        // Return initial state with initials while image loads
+        drawInitials();
+        return canvas.toDataURL();
       } else {
-        // Fallback to a regular marker using the PNG as icon
-        const icon = {
-          url: typeof monkeyMarkerUrl === 'string' ? monkeyMarkerUrl : (monkeyMarkerUrl as any).src || '',
-          scaledSize: new google.maps.Size(40, 40),
-          anchor: new google.maps.Point(20, 40),
-        } as any;
-        fallbackMarker = new google.maps.Marker({
-          position: center,
-          map,
-          title: 'Your location',
-          icon,
-        });
+        // No photo URL, use initials directly
+        drawInitials();
+        return canvas.toDataURL();
       }
+    };
 
-      try { map.panTo(center); } catch (e) {}
+    // Create marker with custom icon
+    marker = new google.maps.Marker({
+      position: center,
+      map,
+      title: `Your location (${user?.displayName || 'You'})`,
+      icon: {
+        url: createCurrentUserMarkerIcon(),
+        scaledSize: new google.maps.Size(50, 62),
+        anchor: new google.maps.Point(25, 62)
+      },
+      zIndex: 2000 // Higher than friends markers
+    });
+
+    try { 
+      map.panTo(center); 
+    } catch (e) {
+      console.warn('Failed to pan to current location:', e);
     }
 
     return () => {
-      try {
-        if (advMarker && typeof advMarker.setMap === 'function') advMarker.setMap(null);
-      } catch (e) {}
-      if (fallbackMarker) {
-        fallbackMarker.setMap(null);
-        fallbackMarker = null;
+      if (marker) {
+        marker.setMap(null);
+        marker = null;
       }
     };
-  }, [map, center]);
+  }, [map, center, user]);
 
   return null;
 }
