@@ -61,35 +61,86 @@ export default function ChatView({
   const [friendLocations, setFriendLocations] = useState<UserLocation[]>([]);
   const [showTriangulation, setShowTriangulation] = useState(false);
 
-  // Load friend/group member locations
+  // Load friend/group member locations using real Firebase data with real-time updates
   useEffect(() => {
-    const loadLocations = async () => {
+    let unsubscribe: (() => void) | null = null;
+
+    const setupLocationListener = async () => {
       try {
         if (conversation.type === 'direct' && conversation.friend) {
-          // For direct messages, get the friend's location
-          // Use mock data for testing
-          const locations = await MockTriangulationService.getMockFriendLocation(conversation.friend.uid);
-          setFriendLocations(locations);
+          // For direct messages, listen to the friend's location in real-time
+          const { listenToFriendsLocations } = await import('@/lib/firebase/locations');
+          
+          unsubscribe = listenToFriendsLocations(
+            [conversation.friend.uid],
+            (locations) => {
+              // Convert FriendLocation to UserLocation format
+              const userLocations: UserLocation[] = locations.map(loc => ({
+                userId: loc.userId,
+                location: {
+                  latitude: loc.latitude,
+                  longitude: loc.longitude,
+                  accuracy: loc.accuracy,
+                  timestamp: loc.lastUpdated
+                },
+                lastUpdated: loc.lastUpdated
+              }));
+              
+              setFriendLocations(userLocations);
+            }
+          );
         } else if (conversation.type === 'group' && conversation.group) {
-          // For group messages, get all group member locations
-          // Use mock data for testing
-          const locations = await MockTriangulationService.getGroupMembersLocations(conversation.group.id, currentUserId);
-          setFriendLocations(locations);
+          // For group messages, listen to all group member locations (excluding current user)
+          const memberIds = conversation.group.members.filter(memberId => memberId !== currentUserId);
+          
+          if (memberIds.length > 0) {
+            const { listenToFriendsLocations } = await import('@/lib/firebase/locations');
+            
+            unsubscribe = listenToFriendsLocations(
+              memberIds,
+              (locations) => {
+                // Convert FriendLocation to UserLocation format
+                const userLocations: UserLocation[] = locations.map(loc => ({
+                  userId: loc.userId,
+                  location: {
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                    accuracy: loc.accuracy,
+                    timestamp: loc.lastUpdated
+                  },
+                  lastUpdated: loc.lastUpdated
+                }));
+                
+                setFriendLocations(userLocations);
+              }
+            );
+          } else {
+            setFriendLocations([]);
+          }
         }
       } catch (error) {
-        console.error('Error loading friend locations:', error);
-        // Fallback to mock data on error
-        if (conversation.type === 'direct') {
-          const mockLocations = await MockTriangulationService.getMockFriendLocation('mock_friend');
+        console.error('Error setting up real-time location listener:', error);
+        // Fallback to mock data only if real data setup fails
+        const { MockTriangulationService } = await import('@/lib/mockTriangulationService');
+        
+        if (conversation.type === 'direct' && conversation.friend) {
+          const mockLocations = await MockTriangulationService.getMockFriendLocation(conversation.friend.uid);
           setFriendLocations(mockLocations);
-        } else {
+        } else if (conversation.type === 'group') {
           const mockLocations = await MockTriangulationService.getRandomMockLocations(3);
           setFriendLocations(mockLocations);
         }
       }
     };
 
-    loadLocations();
+    setupLocationListener();
+
+    // Cleanup function to unsubscribe from real-time updates
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [conversation, currentUserId]);
   return (
     <div className="flex flex-col h-full">
