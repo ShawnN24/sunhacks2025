@@ -15,7 +15,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Friend } from '@/app/components/messages/types';
+import { Friend, Location, UserLocation } from '@/app/components/messages/types';
 
 // Firestore collections
 const USERS_COLLECTION = 'users';
@@ -30,6 +30,13 @@ interface UserProfile {
   status: 'online' | 'offline';
   lastSeen: Timestamp;
   createdAt: Timestamp;
+  location?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    address?: string;
+    lastUpdated: Timestamp;
+  };
 }
 
 // Friendship interface for Firestore
@@ -582,4 +589,116 @@ export function listenToIncomingFriendRequests(
       onError?.(error);
     }
   );
+}
+
+/**
+ * Update user's location
+ */
+export async function updateUserLocation(uid: string, location: Location): Promise<void> {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+    await updateDoc(userRef, {
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        accuracy: location.accuracy,
+        address: location.address,
+        lastUpdated: serverTimestamp()
+      }
+    });
+  } catch (error) {
+    console.error('Error updating user location:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user's current location
+ */
+export async function getUserLocation(uid: string): Promise<Location | null> {
+  try {
+    const userRef = doc(db, USERS_COLLECTION, uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      return null;
+    }
+    
+    const userData = userSnap.data() as UserProfile;
+    if (!userData.location) {
+      return null;
+    }
+    
+    return {
+      latitude: userData.location.latitude,
+      longitude: userData.location.longitude,
+      accuracy: userData.location.accuracy,
+      address: userData.location.address,
+      timestamp: userData.location.lastUpdated.toDate()
+    };
+  } catch (error) {
+    console.error('Error getting user location:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get locations of user's friends
+ */
+export async function getFriendsLocations(userId: string): Promise<UserLocation[]> {
+  try {
+    const friends = await getFriends(userId);
+    const friendLocations: UserLocation[] = [];
+    
+    for (const friend of friends) {
+      const location = await getUserLocation(friend.uid);
+      if (location) {
+        friendLocations.push({
+          userId: friend.uid,
+          location,
+          lastUpdated: location.timestamp || new Date()
+        });
+      }
+    }
+    
+    return friendLocations;
+  } catch (error) {
+    console.error('Error getting friends locations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get locations of group members
+ */
+export async function getGroupMembersLocations(groupId: string, currentUserId: string): Promise<UserLocation[]> {
+  try {
+    // Import the getGroup function from groups module
+    const { getGroup } = await import('./groups');
+    const group = await getGroup(groupId);
+    
+    if (!group) {
+      throw new Error('Group not found');
+    }
+    
+    const memberLocations: UserLocation[] = [];
+    
+    for (const memberId of group.members) {
+      if (memberId !== currentUserId) {
+        const location = await getUserLocation(memberId);
+        if (location) {
+          memberLocations.push({
+            userId: memberId,
+            location,
+            lastUpdated: location.timestamp || new Date()
+          });
+        }
+      }
+    }
+    
+    return memberLocations;
+  } catch (error) {
+    console.error('Error getting group members locations:', error);
+    throw error;
+  }
 }

@@ -50,6 +50,41 @@ export interface Conversation {
 
 export type MessagingView = 'conversations' | 'search' | 'groups' | 'chat';
 
+export interface Location {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp?: Date;
+  address?: string;
+}
+
+export interface UserLocation {
+  userId: string;
+  location: Location;
+  lastUpdated: Date;
+}
+
+export interface TriangulationRequest {
+  currentUserLocation: Location;
+  friendLocations: UserLocation[];
+  groupId?: string;
+  conversationType: 'direct' | 'group';
+}
+
+export interface TriangulationResult {
+  meetingPoint: Location;
+  suggestions: string[]; // Activity suggestions
+  estimatedTravelTime?: number;
+  distance?: number;
+  outlierFiltering?: {
+    enabled: boolean;
+    outliersRemoved: number;
+    originalPointCount: number;
+    filteredPointCount: number;
+    outlierThreshold?: number;
+  };
+}
+
 export interface MessagingState {
   friends: Friend[];
   groups: Group[];
