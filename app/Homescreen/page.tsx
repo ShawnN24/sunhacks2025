@@ -95,6 +95,248 @@ export default function Homescreen() {
   const [searchCenter, setSearchCenter] = useState<{lat:number, lng:number} | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number, name: string, address: string} | null>(null);
+  const [isNavigatingToLocation, setIsNavigatingToLocation] = useState(false);
+  const [navigationRoute, setNavigationRoute] = useState<any>(null);
+  const [navigationSteps, setNavigationSteps] = useState<any[]>([]);
+  const [isNavigationActive, setIsNavigationActive] = useState(false);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [navigationProgress, setNavigationProgress] = useState<{completedSteps: number, totalSteps: number}>({completedSteps: 0, totalSteps: 0});
+  const [isTrackingLocation, setIsTrackingLocation] = useState(false);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+
+  // Helper function to safely render HTML content
+  const renderHTML = (htmlString: string) => {
+    return { __html: htmlString };
+  };
+
+  // Start real-time location tracking during navigation
+  const startLocationTracking = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    setIsTrackingLocation(true);
+    
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 1000
+    };
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const newLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+        
+        // Update current location
+        setCurrentLocation(newLocation);
+        
+        // Check if we need to update directions
+        if (isNavigationActive && navigationRoute) {
+          checkNavigationProgress(newLocation);
+        }
+      },
+      (error) => {
+        console.error('Location tracking error:', error);
+        setIsTrackingLocation(false);
+      },
+      options
+    );
+  };
+
+  // Stop location tracking
+  const stopLocationTracking = () => {
+    if (watchIdRef.current) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setIsTrackingLocation(false);
+  };
+
+  // Check navigation progress and update directions if needed
+  const checkNavigationProgress = async (userLocation: {lat: number, lng: number}) => {
+    if (!navigationRoute || !selectedLocation) return;
+
+    try {
+      // Calculate distance to current step's end location
+      const currentStep = navigationSteps[currentStepIndex];
+      if (!currentStep) return;
+
+      const stepEndLocation = currentStep.endLocation;
+      const distanceToStepEnd = calculateDistance(
+        userLocation.lat, userLocation.lng,
+        stepEndLocation.lat(), stepEndLocation.lng()
+      );
+
+      // If within 50 meters of step end, move to next step
+      if (distanceToStepEnd < 0.05) { // 50 meters
+        if (currentStepIndex < navigationSteps.length - 1) {
+          setCurrentStepIndex(currentStepIndex + 1);
+          setNavigationProgress(prev => ({
+            ...prev,
+            completedSteps: prev.completedSteps + 1
+          }));
+        } else {
+          // Reached destination
+          alert('🎉 You have arrived at your destination!');
+          stopNavigation();
+        }
+      }
+
+      // Check if we need to recalculate route (if user deviates significantly)
+      const distanceToRoute = calculateDistanceToRoute(userLocation, navigationRoute);
+      if (distanceToRoute > 0.1) { // 100 meters deviation
+        console.log('User deviated from route, recalculating...');
+        await recalculateRoute(userLocation);
+      }
+    } catch (error) {
+      console.error('Error checking navigation progress:', error);
+    }
+  };
+
+  // Calculate distance between two points in kilometers
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Calculate distance to route
+  const calculateDistanceToRoute = (userLocation: {lat: number, lng: number}, route: any) => {
+    // Simplified: check distance to route start/end points
+    const routeStart = route.routes[0].legs[0].start_location;
+    const routeEnd = route.routes[0].legs[0].end_location;
+    
+    const distToStart = calculateDistance(userLocation.lat, userLocation.lng, routeStart.lat(), routeStart.lng());
+    const distToEnd = calculateDistance(userLocation.lat, userLocation.lng, routeEnd.lat(), routeEnd.lng());
+    
+    return Math.min(distToStart, distToEnd);
+  };
+
+  // Recalculate route from current position
+  const recalculateRoute = async (userLocation: {lat: number, lng: number}) => {
+    if (!selectedLocation) return;
+    
+    try {
+      const newDestination = selectedLocation;
+      const directionsResult = await getDirections(newDestination);
+      
+      if (directionsResult) {
+        // Update the directions renderer
+        if (directionsRendererRef.current) {
+          directionsRendererRef.current.setMap(null);
+        }
+        directionsRendererRef.current = directionsResult.directionsRenderer;
+        directionsRendererRef.current.setMap(mapRef.current);
+        
+        console.log('Route recalculated successfully');
+      }
+    } catch (error) {
+      console.error('Error recalculating route:', error);
+    }
+  };
+
+  // Stop navigation and cleanup
+  const stopNavigation = () => {
+    setIsNavigationActive(false);
+    setNavigationRoute(null);
+    setNavigationSteps([]);
+    setCurrentStepIndex(0);
+    setNavigationProgress({completedSteps: 0, totalSteps: 0});
+    stopLocationTracking();
+    
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+  };
+
+  // Cleanup location tracking on component unmount
+  useEffect(() => {
+    return () => {
+      stopLocationTracking();
+    };
+  }, []);
+
+  // Get directions from current location to destination
+  const getDirections = async (destination: {lat: number, lng: number}) => {
+    if (!currentLocation) {
+      alert('Current location not available. Please enable location services.');
+      return;
+    }
+
+    try {
+      const directionsService = new google.maps.DirectionsService();
+      const directionsRenderer = new google.maps.DirectionsRenderer({
+        suppressMarkers: true, // We'll use our own markers
+        polylineOptions: {
+          strokeColor: '#10b981',
+          strokeWeight: 4,
+          strokeOpacity: 0.8
+        }
+      });
+
+      const request = {
+        origin: new google.maps.LatLng(currentLocation.lat, currentLocation.lng),
+        destination: new google.maps.LatLng(destination.lat, destination.lng),
+        travelMode: google.maps.TravelMode.DRIVING,
+        unitSystem: google.maps.UnitSystem.IMPERIAL,
+        avoidHighways: false,
+        avoidTolls: false
+      };
+
+      const result = await new Promise<any>((resolve, reject) => {
+        directionsService.route(request, (result, status) => {
+          if (status === 'OK' && result) {
+            resolve(result);
+          } else {
+            reject(new Error('Directions request failed: ' + status));
+          }
+        });
+      });
+
+      setNavigationRoute(result);
+      
+      // Extract step-by-step instructions
+      const steps = result.routes[0].legs[0].steps.map((step: any, index: number) => ({
+        index,
+        instruction: step.instructions,
+        distance: step.distance.text,
+        duration: step.duration.text,
+        startLocation: step.start_location,
+        endLocation: step.end_location,
+        maneuver: step.maneuver || 'straight'
+      }));
+      
+      setNavigationSteps(steps);
+      setCurrentStepIndex(0);
+      setNavigationProgress({completedSteps: 0, totalSteps: steps.length});
+      setIsNavigationActive(true);
+      
+      // Store the directions renderer reference
+      directionsRendererRef.current = directionsRenderer;
+      
+      // Start location tracking for real-time updates
+      startLocationTracking();
+      
+      return { directionsRenderer, result };
+    } catch (error) {
+      console.error('Error getting directions:', error);
+      alert('Failed to get directions. Please try again.');
+      return null;
+    }
+  };
 
   // Google Places API functions using server-side route
   const searchPlaces = async (query: string): Promise<Place[]> => {
@@ -898,10 +1140,34 @@ export default function Homescreen() {
                         </div>
                         <div className="mt-3 flex space-x-2">
                           <button 
-                            onClick={() => setSearchCenter(selectedLocation)}
-                            className="px-3 py-1 bg-white bg-opacity-30 text-black rounded text-sm hover:bg-opacity-40 transition-colors"
+                            onClick={async () => {
+                              setIsNavigatingToLocation(true);
+                              setSearchCenter(selectedLocation);
+                              
+                              // Get directions for navigation
+                              const directionsResult = await getDirections(selectedLocation);
+                              if (directionsResult) {
+                                // Set the directions renderer on the map
+                                directionsResult.directionsRenderer.setMap(mapRef.current);
+                              }
+                              
+                              // Add a small delay to show the loading state
+                              setTimeout(() => setIsNavigatingToLocation(false), 1000);
+                            }}
+                            disabled={isNavigatingToLocation}
+                            className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md hover:shadow-lg"
                           >
-                            Go to Location
+                            {isNavigatingToLocation ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Getting Directions...
+                              </>
+                            ) : (
+                              <>
+                                <span>🧭</span>
+                                Get Directions
+                              </>
+                            )}
                           </button>
                           <button 
                             onClick={() => {
@@ -922,6 +1188,92 @@ export default function Homescreen() {
                             Clear
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Navigation Instructions */}
+                    {isNavigationActive && navigationSteps.length > 0 && (
+                      <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
+                            <span>🧭</span>
+                            Navigation Active
+                            {isTrackingLocation && (
+                              <span className="text-green-600 text-sm">📍 Live</span>
+                            )}
+                          </h3>
+                          <button
+                            onClick={stopNavigation}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            Stop Navigation
+                          </button>
+                        </div>
+                        
+                        {/* Navigation Progress */}
+                        <div className="mb-3 p-2 bg-blue-100 rounded-lg">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-blue-800 font-medium">
+                              Progress: {navigationProgress.completedSteps} / {navigationProgress.totalSteps} steps
+                            </span>
+                            <span className="text-blue-600">
+                              {Math.round((navigationProgress.completedSteps / navigationProgress.totalSteps) * 100)}% complete
+                            </span>
+                          </div>
+                          <div className="mt-1 w-full bg-blue-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${(navigationProgress.completedSteps / navigationProgress.totalSteps) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Current Step */}
+                        <div className="bg-white rounded-lg p-3 mb-3 border border-blue-200">
+                          <div className="flex items-start gap-3">
+                            <div className="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                              {currentStepIndex + 1}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-blue-800 font-medium text-sm">
+                                Step {currentStepIndex + 1} of {navigationSteps.length}
+                              </div>
+                              <div 
+                                className="text-gray-700 text-sm mt-1 [&_b]:font-bold [&_b]:text-gray-900 [&_b]:text-base"
+                                dangerouslySetInnerHTML={renderHTML(navigationSteps[currentStepIndex]?.instruction || '')}
+                              />
+                              <div className="flex gap-4 text-xs text-gray-500 mt-2">
+                                <span>📏 {navigationSteps[currentStepIndex]?.distance}</span>
+                                <span>⏱️ {navigationSteps[currentStepIndex]?.duration}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Navigation Controls */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
+                            disabled={currentStepIndex === 0}
+                            className="px-3 py-1 bg-gray-500 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-600"
+                          >
+                            ← Previous
+                          </button>
+                          <button
+                            onClick={() => setCurrentStepIndex(Math.min(navigationSteps.length - 1, currentStepIndex + 1))}
+                            disabled={currentStepIndex === navigationSteps.length - 1}
+                            className="px-3 py-1 bg-blue-500 text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600"
+                          >
+                            Next →
+                          </button>
+                        </div>
+
+                        {/* Route Summary */}
+                        {navigationRoute && (
+                          <div className="mt-3 p-2 bg-green-50 rounded text-sm text-green-800">
+                            <strong>Route Summary:</strong> {navigationRoute.routes[0].legs[0].distance.text} • {navigationRoute.routes[0].legs[0].duration.text}
+                          </div>
+                        )}
                       </div>
                     )}
                     
@@ -1231,6 +1583,7 @@ export default function Homescreen() {
           <MapController 
             center={searchCenter} 
             places={places}
+            mapRef={mapRef}
             onLocationClick={(lat, lng, name, address) => {
               setSelectedLocation({lat, lng, name, address});
               // Clear search memory when clicking on map
@@ -1258,10 +1611,17 @@ export default function Homescreen() {
 }
 
 // MapController component with click handling and enhanced zoom functionality
-function MapController({center, places, onLocationClick}:{center: {lat:number, lng:number} | null, places?: Place[], onLocationClick?: (lat: number, lng: number, name: string, address: string) => void}){
+function MapController({center, places, mapRef, onLocationClick}:{center: {lat:number, lng:number} | null, places?: Place[], mapRef?: React.RefObject<google.maps.Map | null>, onLocationClick?: (lat: number, lng: number, name: string, address: string) => void}){
   const map = useMap();
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
   const customInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  
+  // Set the map reference for external access
+  useEffect(() => {
+    if (mapRef && map) {
+      mapRef.current = map;
+    }
+  }, [map, mapRef]);
   
   useEffect(() => {
     if(!map) return;
@@ -1496,11 +1856,13 @@ function MapController({center, places, onLocationClick}:{center: {lat:number, l
   useEffect(() => {
     if(!map || !center) return;
     
-    // Pan to the location
+    // Smooth pan to the location with animation
     map.panTo(center);
     
-    // Zoom in more for better detail
-    map.setZoom(16);
+    // Smooth zoom in for better detail
+    setTimeout(() => {
+      map.setZoom(16);
+    }, 500);
     
     // Remove previous marker
     if (marker) {
@@ -1512,6 +1874,7 @@ function MapController({center, places, onLocationClick}:{center: {lat:number, l
       position: center,
       map: map,
       title: "Selected Location",
+      animation: google.maps.Animation.DROP,
       icon: {
         url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
