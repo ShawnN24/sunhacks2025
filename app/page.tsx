@@ -1,45 +1,33 @@
-"use client";
+"use client"
 
-import { motion } from "framer-motion";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { User } from "firebase/auth";
+import { onAuthStateChange } from "@/lib/firebase/auth";
+import Login from "@/app/login";
+import Homescreen from "@/app/Homescreen/page";
 
-export default function Login() {
-  const router = useRouter();
+export default function Index() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Example placeholders – replace with your uploaded image paths
   const images = ["/img1.png", "/citystockimage.jpg", "chat.png", "/img4.png"];
 
-  return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black">
-      {/* Background Sliding Images */}
-      <div className="absolute inset-0 flex">
-        {images.map((src, i) => (
-          <motion.div
-            key={i}
-            className="flex-1"
-          >
-            <motion.img
-              src={src}
-              alt={`bg-${i}`}
-              initial={{ y: "100%", filter: "blur(0px)" }}
-              animate={{ y: "0%", filter: "blur(10px)" }}
-              transition={{ duration: 1, delay: i * 0.5 }}
-              className="w-full h-full object-cover"
-            />
-          </motion.div>
-        ))}
-      </div>
+    return () => unsubscribe();
+  }, []);
 
-      {/* Centered Login Window */}
-      <div className="relative flex items-center justify-center h-full">
-        <div className="bg-[#00af64] rounded-2xl shadow-2xl p-8 w-96 text-center">
-          <h1 className="text-xl font-bold text-white mb-6">goonbot</h1>
-          <button onClick={() => router.push("/homescreen")} className="bg-white text-black font-medium px-6 py-3 rounded-xl hover:bg-gray-200 transition">
-            Log in with Google
-          </button>
-        </div>
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
-    </div>
-  );
+    );
+  }
+  
+  // Render based on authentication state
+  if (user) {
+    return <Homescreen />;
+  }
+  return <Login />;
 }
