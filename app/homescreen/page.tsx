@@ -1121,24 +1121,43 @@ export default function Homescreen() {
                 stiffness: 300,
                 duration: 0.4
               }}
-              className="absolute overflow-hidden bg-[#00af64] shadow-2xl"
+              className="absolute overflow-hidden bg-gradient-to-br from-emerald-500 via-green-600 to-teal-600 shadow-2xl backdrop-blur-sm border border-white/20"
               style={{ pointerEvents: 'auto' }}
             >
               {/* Content area */}
-              <div className="p-6 h-full">
+              <div className="p-8 h-full bg-gradient-to-b from-white/10 to-transparent">
                 {/* Different content for each popup */}
                 {activePopup === 0 && (
                   <div className="h-full flex flex-col">
-                    <h2 className="text-2xl font-bold text-white mb-4">Search</h2>
+                    <div className="flex items-center space-x-3 mb-6">
+                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                          <circle cx="12" cy="10" r="3"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">Search & Maps</h2>
+                        <p className="text-white/80 text-sm">Find locations and get directions</p>
+                      </div>
+                    </div>
                     
                     {/* Location Display Menu */}
                     {selectedLocation && (
-                      <div className="mb-4 p-4 bg-white bg-opacity-20 rounded-lg">
-                        <h3 className="text-lg font-semibold text-black mb-2">{selectedLocation.name}</h3>
-                        <div className="text-sm text-black text-opacity-90">
-                          <p className="mb-2">{selectedLocation.address}</p>
+                      <div className="mb-6 p-5 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 shadow-lg">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-8 h-8 bg-white/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                              <circle cx="12" cy="10" r="3"/>
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-white mb-2">{selectedLocation.name}</h3>
+                            <p className="text-white/80 text-sm mb-3">{selectedLocation.address}</p>
+                          </div>
                         </div>
-                        <div className="mt-3 flex space-x-2">
+                        <div className="flex flex-wrap gap-2">
                           <button 
                             onClick={async () => {
                               setIsNavigatingToLocation(true);
@@ -1155,7 +1174,7 @@ export default function Homescreen() {
                               setTimeout(() => setIsNavigatingToLocation(false), 1000);
                             }}
                             disabled={isNavigatingToLocation}
-                            className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-md hover:shadow-lg"
+                            className="px-4 py-2.5 bg-white/20 backdrop-blur-sm text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg hover:shadow-xl border border-white/30 hover:border-white/50"
                           >
                             {isNavigatingToLocation ? (
                               <>
@@ -1177,13 +1196,13 @@ export default function Homescreen() {
                                 (window as any).restoreSearch();
                               }
                             }}
-                            className="px-3 py-1 bg-blue-500 bg-opacity-30 text-black rounded text-sm hover:bg-opacity-40 transition-colors"
+                            className="px-3 py-2 bg-white/10 backdrop-blur-sm text-white rounded-lg text-sm hover:bg-white/20 transition-all duration-200 border border-white/20 hover:border-white/40"
                           >
                             ← Back to Search
                           </button>
                           <button 
                             onClick={() => setSelectedLocation(null)}
-                            className="px-3 py-1 bg-red-500 bg-opacity-30 text-black rounded text-sm hover:bg-opacity-40 transition-colors"
+                            className="px-3 py-2 bg-red-500/20 backdrop-blur-sm text-white rounded-lg text-sm hover:bg-red-500/30 transition-all duration-200 border border-red-400/30 hover:border-red-400/50"
                           >
                             Clear
                           </button>
@@ -1321,15 +1340,28 @@ export default function Homescreen() {
                 )}
                 
                 {activePopup === 1 && (
-                  <div className="h-full flex flex-col">
-                    <h2 className="text-2xl font-bold text-black mb-4">Chat with MApI</h2>
+                  <div className="h-full flex flex-col bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                    <div className="flex items-center space-x-3 mb-6 p-6 pb-0">
+                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <div className="font-bold text-lg leading-none text-white">AI</div>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white">MApI Assistant</h2>
+                        <p className="text-white/80 text-sm">Your intelligent location companion</p>
+                      </div>
+                    </div>
                     
                     {/* Messages Container */}
-                    <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
+                    <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 px-6 scrollbar-hide">
                       {messages.length === 0 && (
-                        <div className="text-black text-opacity-60 text-center py-8">
-                          <p>Start a conversation with MApI!</p>
-                          <p className="text-sm mt-2">Ask me anything about locations, directions, or places.</p>
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                          </div>
+                          <h3 className="text-white font-semibold mb-2">Start a conversation with MApI!</h3>
+                          <p className="text-white/70 text-sm">Ask me anything about locations, directions, or places.</p>
                         </div>
                       )}
                       
@@ -1339,14 +1371,14 @@ export default function Homescreen() {
                           className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`max-w-[80%] p-3 rounded-lg ${
+                            className={`max-w-[80%] p-4 rounded-2xl backdrop-blur-sm shadow-lg ${
                               message.role === 'user'
-                                ? 'bg-white bg-opacity-20 text-black'
-                                : 'bg-white bg-opacity-10 text-black'
+                                ? 'bg-white/20 text-white border border-white/30'
+                                : 'bg-white/10 text-white border border-white/20'
                             }`}
                           >
-                            <div className="text-sm whitespace-pre-wrap">{message.content}</div>
-                            <p className="text-xs text-black text-opacity-50 mt-1">
+                            <div className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                            <p className="text-xs text-white/60 mt-2">
                               {message.timestamp.toLocaleTimeString()}
                             </p>
                           </div>
@@ -1355,11 +1387,14 @@ export default function Homescreen() {
                       
                       {isLoading && (
                         <div className="flex justify-start">
-                          <div className="bg-white bg-opacity-10 text-black p-3 rounded-lg">
-                            <div className="flex space-x-1">
-                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce"></div>
-                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                              <div className="w-2 h-2 bg-white bg-opacity-60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="bg-white/10 backdrop-blur-sm text-white p-4 rounded-2xl border border-white/20 shadow-lg">
+                            <div className="flex items-center space-x-2">
+                              <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                                <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                              </div>
+                              <span className="text-sm text-white/80">MApI is thinking...</span>
                             </div>
                           </div>
                         </div>
@@ -1369,20 +1404,20 @@ export default function Homescreen() {
                     </div>
                     
                     {/* Input Area */}
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-3 p-6 pt-0">
                       <input
                         type="text"
                         value={inputMessage}
                         onChange={(e) => setInputMessage(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="Ask MApI anything..."
-                        className="flex-1 p-3 rounded-lg bg-white bg-opacity-20 text-black placeholder-white placeholder-opacity-60 focus:outline-none focus:bg-opacity-30"
+                        className="flex-1 p-4 rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/60 focus:outline-none focus:bg-white/30 focus:ring-2 focus:ring-white/30 border border-white/30 focus:border-white/50 transition-all duration-200"
                         disabled={isLoading}
                       />
                       <button
                         onClick={sendMessage}
                         disabled={!inputMessage.trim() || isLoading}
-                        className="px-4 py-3 bg-white bg-opacity-20 text-black rounded-lg hover:bg-opacity-30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        className="px-6 py-4 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 border border-white/30 hover:border-white/50 shadow-lg hover:shadow-xl flex items-center justify-center"
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <line x1="22" y1="2" x2="11" y2="13"/>
@@ -1395,15 +1430,24 @@ export default function Homescreen() {
                 
                 {activePopup === 2 && (
                   <div className="h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-2xl font-bold text-black">Messages</h2>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-bold text-white">Messages</h2>
+                        </div>
+                      </div>
                       <div className="flex space-x-2">
                         <button
                           onClick={() => setMessagingView('search')}
-                          className={`p-2 rounded-lg transition-colors relative ${
+                          className={`p-3 rounded-xl transition-all duration-200 relative backdrop-blur-sm border ${
                             messagingView === 'search' 
-                              ? 'bg-white bg-opacity-30' 
-                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                              ? 'bg-white/30 border-white/40 shadow-lg' 
+                              : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30'
                           }`}
                           title="Search Friends"
                         >
@@ -1412,17 +1456,17 @@ export default function Homescreen() {
                             <path d="m21 21-4.35-4.35"/>
                           </svg>
                           {incomingRequests.length > 0 && (
-                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-lg">
                               {incomingRequests.length}
                             </span>
                           )}
                         </button>
                         <button
                           onClick={() => setMessagingView('groups')}
-                          className={`p-2 rounded-lg transition-colors ${
+                          className={`p-3 rounded-xl transition-all duration-200 backdrop-blur-sm border ${
                             messagingView === 'groups' 
-                              ? 'bg-white bg-opacity-30' 
-                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                              ? 'bg-white/30 border-white/40 shadow-lg' 
+                              : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30'
                           }`}
                           title="Create Group"
                         >
@@ -1435,10 +1479,10 @@ export default function Homescreen() {
                         </button>
                         <button
                           onClick={() => setMessagingView('location-settings')}
-                          className={`p-2 rounded-lg transition-colors relative ${
+                          className={`p-3 rounded-xl transition-all duration-200 relative backdrop-blur-sm border ${
                             messagingView === 'location-settings' 
-                              ? 'bg-white bg-opacity-30' 
-                              : 'bg-white bg-opacity-10 hover:bg-opacity-20'
+                              ? 'bg-white/30 border-white/40 shadow-lg' 
+                              : 'bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/30'
                           }`}
                           title="Location Settings"
                         >
@@ -1518,7 +1562,8 @@ export default function Homescreen() {
 
                     {/* Chat View */}
                     {messagingView === 'chat' && activeConversation && (
-                      <ChatView
+                      <div className="flex-1 flex flex-col min-h-0">
+                        <ChatView
                         conversation={{
                           type: activeConversation.type,
                           friend: activeConversation.type === 'direct' 
@@ -1537,6 +1582,7 @@ export default function Homescreen() {
                         onSendMessageWithContent={activeConversation.type === 'direct' ? handleSendDirectMessageWithContent : handleSendGroupMessageWithContent}
                         onBack={() => setMessagingView('conversations')}
                       />
+                      </div>
                     )}
                   </div>
                 )}
@@ -1981,22 +2027,43 @@ function Searchbar({onSelect, onBackToSearch, onClearMemory}:{onSelect?: (place:
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search for a location"
-        className="w-full rounded-md border px-3 py-2 focus:outline-none focus:ring mb-4"
+        className="w-full rounded-xl bg-white/20 backdrop-blur-sm text-white placeholder-white/60 focus:outline-none focus:bg-white/30 focus:ring-2 focus:ring-white/30 border border-white/30 focus:border-white/50 px-4 py-3 mb-6 transition-all duration-200"
       />
 
       <div className="flex-1 overflow-hidden">
         {query === "" ? (
-          <div className="text-sm text-black text-opacity-60 h-full flex items-center justify-center">Type to search for places</div>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <h3 className="text-white font-semibold mb-2">Search for places</h3>
+            <p className="text-white/70 text-sm">Type to find locations, restaurants, and more</p>
+          </div>
         ) : isSearching ? (
-          <div className="text-sm text-black text-opacity-60 h-full flex items-center justify-center">Searching...</div>
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-2 border-white/60 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-white/80">Searching...</p>
+          </div>
         ) : results.length === 0 ? (
-          <div className="text-sm text-black text-opacity-60 h-full flex items-center justify-center">No results found</div>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+            </div>
+            <h3 className="text-white font-semibold mb-2">No results found</h3>
+            <p className="text-white/70 text-sm">Try a different search term</p>
+          </div>
         ) : (
-          <ul className="h-full overflow-y-auto space-y-2 pr-2">
+          <ul className="h-full overflow-y-auto space-y-3 pr-2 scrollbar-hide">
             {results.map((place) => (
               <li
                 key={place.place_id}
-                className="flex flex-col bg-white bg-opacity-20 p-3 rounded cursor-pointer hover:bg-opacity-30 transition-all duration-200"
+                className="flex flex-col bg-white/20 backdrop-blur-sm p-4 rounded-xl cursor-pointer hover:bg-white/30 transition-all duration-200 border border-white/20 hover:border-white/30 shadow-lg hover:shadow-xl"
                 onClick={() => {
                   // Save current search state before clearing
                   setPreviousQuery(query);
@@ -2008,8 +2075,18 @@ function Searchbar({onSelect, onBackToSearch, onClearMemory}:{onSelect?: (place:
                   setResults([]);
                 }}
               >
-                <span className="font-medium text-black">{place.name}</span>
-                <span className="text-xs text-black text-opacity-70">{place.address}</span>
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 bg-white/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                      <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-white block truncate">{place.name}</span>
+                    <span className="text-sm text-white/70 block truncate">{place.address}</span>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
