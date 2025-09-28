@@ -9,9 +9,6 @@ import Homescreen from "@/app/Homescreen/page";
 export default function Index() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Example placeholders – replace with your uploaded image paths
-  const images = ["/img1.png", "/citystockimage.jpg", "chat.png", "/img4.png"];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChange((authUser: User | null) => {

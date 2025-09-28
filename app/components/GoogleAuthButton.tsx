@@ -18,10 +18,14 @@ export default function GoogleAuthButton({
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
+    console.log("Google login button clicked!");
     setIsLoading(true);
     try {
+      console.log("Calling login function...");
       const result = await login();
+      console.log("Login result:", result);
       if (result && onSuccess) {
+        console.log("Calling onSuccess callback");
         onSuccess(result.user);
       }
     } catch (error) {
@@ -37,6 +41,10 @@ export default function GoogleAuthButton({
   return (
     <button
       onClick={handleGoogleLogin}
+      onMouseDown={() => console.log("Button mouse down")}
+      onMouseUp={() => console.log("Button mouse up")}
+      onMouseEnter={() => console.log("Button mouse enter")}
+      onMouseLeave={() => console.log("Button mouse leave")}
       disabled={isLoading}
       className={`
         flex items-center justify-center gap-3 
@@ -49,8 +57,10 @@ export default function GoogleAuthButton({
         font-medium text-white
         shadow-lg hover:shadow-xl
         hover:scale-[1.02] active:scale-[0.98]
+        relative z-50
         ${className}
       `}
+      style={{ pointerEvents: 'auto' }}
     >
       {isLoading ? (
         <>

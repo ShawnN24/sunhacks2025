@@ -19,6 +19,16 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+// Debug Firebase configuration
+console.log("Firebase config:", {
+  apiKey: firebaseConfig.apiKey ? "Set" : "Missing",
+  authDomain: firebaseConfig.authDomain ? "Set" : "Missing",
+  projectId: firebaseConfig.projectId ? "Set" : "Missing",
+  storageBucket: firebaseConfig.storageBucket ? "Set" : "Missing",
+  messagingSenderId: firebaseConfig.messagingSenderId ? "Set" : "Missing",
+  appId: firebaseConfig.appId ? "Set" : "Missing"
+});
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
