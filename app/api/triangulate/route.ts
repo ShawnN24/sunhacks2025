@@ -60,7 +60,7 @@ function filterOutliers(locations: Location[], threshold: number = 1.5): {
   const originalCount = locations.length;
   
   // Calculate initial geographic center
-  let center = calculateGeographicCenter(locations);
+  const center = calculateGeographicCenter(locations);
   
   // Calculate distances from each point to the center
   const distances = locations.map(loc => ({

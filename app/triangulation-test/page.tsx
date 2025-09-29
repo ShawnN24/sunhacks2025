@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import TriangulationExample from '@/app/components/TriangulationExample';
 import { MockTriangulationService } from '@/lib/mockTriangulationService';
 
 export default function TriangulationTestPage() {
@@ -54,11 +53,6 @@ export default function TriangulationTestPage() {
             <p className="text-gray-600 mb-4">
               Test activity suggestions between you and one friend
             </p>
-            <TriangulationExample
-              currentUserId="current_user"
-              conversationType="direct"
-              friendId="friend_sarah"
-            />
           </div>
 
           {/* Group Chat Test */}
@@ -69,11 +63,6 @@ export default function TriangulationTestPage() {
             <p className="text-gray-600 mb-4">
               Test activity suggestions for a group of friends
             </p>
-            <TriangulationExample
-              currentUserId="current_user"
-              conversationType="group"
-              groupId="test_group"
-            />
           </div>
         </div>
 
@@ -101,12 +90,6 @@ export default function TriangulationTestPage() {
                   meeting point should be centered on Phoenix area members only.
                 </p>
               </div>
-              <TriangulationExample
-                currentUserId="current_user"
-                conversationType="group"
-                groupId="outlier_test_group"
-                testScenario="outliers"
-              />
             </div>
 
             {/* Extreme Outlier Test - California Member */}
@@ -123,12 +106,6 @@ export default function TriangulationTestPage() {
                   meeting point should be centered on Phoenix area members only.
                 </p>
               </div>
-              <TriangulationExample
-                currentUserId="current_user"
-                conversationType="group"
-                groupId="extreme_outlier_test_group"
-                testScenario="extreme_outlier"
-              />
             </div>
           </div>
         </div>
